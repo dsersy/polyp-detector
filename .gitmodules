@@ -1,0 +1,9 @@
+[submodule "external/caffe"]
+	path = external/caffe
+	url = https://github.com/BVLC/caffe
+[submodule "external/piotr_toolbox"]
+	path = external/piotr_toolbox
+	url = https://github.com/pdollar/toolbox
+[submodule "external/liblinear"]
+	path = external/liblinear
+	url = https://github.com/cjlin1/liblinear
