@@ -17,8 +17,10 @@ function acf_train_detector (varargin)
 
     opts.posImgDir = fullfile(data_dir, 'train', 'pos'); % dir containing full positive images
     opts.posGtDir = fullfile(data_dir, 'train', 'posGT'); % dir containing ground truth
-    opts.negImgDir = fullfile(data_dir, 'train', 'neg'); % dir containing negative images
+    %opts.negImgDir = fullfile(data_dir, 'train', 'neg'); % dir containing negative images
 
+    opts.winsSave = 1;
+    
     opts.name = name;
 
     %% Train

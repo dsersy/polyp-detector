@@ -19,6 +19,8 @@ classdef AnnotationViewer < handle
         selected_boxes
         selected_box_idx
         selected_box_handle
+        
+        show_masked = false
     end
     
     methods
@@ -92,7 +94,11 @@ classdef AnnotationViewer < handle
             clf(self.figure_main);
             
             % Display image
-            imshow(self.I);
+            if self.show_masked,
+                imshow(mask_image_with_polygon(self.I, self.polygon));
+            else
+                imshow(self.I);
+            end
             hold on;
             
             %% Display polygon
@@ -264,6 +270,9 @@ classdef AnnotationViewer < handle
                     self.delete_selected_box();
                 case { 'a', 'add' },
                     self.add_box();
+                case 'm',
+                    self.show_masked = ~self.show_masked;
+                    self.display_data();
                 case '1',
                     % 1: save annotations
                     [ filename, pathname ] = uiputfile(self.boxes_file, 'Save boxes as');

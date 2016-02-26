@@ -1,15 +1,17 @@
 function acf_prepare_dataset (output_path, varargin)
     parser = inputParser();
-    parser.addParameter('data_path', fullfile(fileparts(mfilename('fullpath')), 'data'), @ischar);
+    parser.addParameter('data_path', fullfile(fileparts(mfilename('fullpath')), 'acf_training', 'data'), @ischar);
     parser.addParameter('training_images', { '07.03', '13.01', '13.03', '13.04', '13.05' }, @iscell);
     parser.addParameter('negative_folders', {}, @iscell);
-    parser.addParameter('enlarge_box', 0, @isnumeric);
+    parser.addParameter('box_scale', 1.0, @isnumeric);
+    parser.addParameter('mask_images', false, @islogical);
     parser.parse(varargin{:});
 
     data_path = parser.Results.data_path;
     training_images = parser.Results.training_images;
-    enlarge_box = parser.Results.enlarge_box;
+    box_scale = parser.Results.box_scale;
     negative_folders = parser.Results.negative_folders;
+    mask_images = parser.Results.mask_images;
     
     %% Create output dir
     assert(exist(output_path, 'dir') == 0, 'Output directory already exists!');
@@ -25,6 +27,7 @@ function acf_prepare_dataset (output_path, varargin)
         
         image_file = fullfile(data_path, [ basename, '.jpg' ]);
         annotation_file = fullfile(data_path, [ basename, '.bbox' ]);
+        polygon_file = fullfile(data_path, [ basename, '.poly' ]);
         
         % Parse
         fid = fopen(annotation_file, 'r');
@@ -37,8 +40,8 @@ function acf_prepare_dataset (output_path, varargin)
         height = boxes{4};
         
         % Enlarge box
-        extra_width  = width * enlarge_box;
-        extra_height = height * enlarge_box;
+        extra_width  = width * (box_scale - 1);
+        extra_height = height * (box_scale - 1);
         
         x = x - extra_width/2;
         y = y - extra_height/2;
@@ -53,13 +56,26 @@ function acf_prepare_dataset (output_path, varargin)
         
         annotations = bbGt('set', annotations, 'bb', [ x, y, width, height ]);
         
-        % Save
+        %% Replace . to _ in output filenames
+        basename = strrep(basename, '.', '_');
+        
+        %% Save boxes annotation
         output_annotation = fullfile(output_path, 'train', 'posGT', [ basename, '.txt' ]);
         bbGt('bbSave', annotations, output_annotation);
         
-        % Symlink on linux, copy otherwise
-        output_image = fullfile(output_path, 'train', 'pos', [ basename, '.jpg' ]);
-        copy_or_link_file( image_file, output_image );
+        %% Read image, mask it, and write it to the output
+        if mask_images,
+            I = imread(image_file);
+            poly = load(polygon_file);
+
+            Im = mask_image_with_polygon(I, poly);
+
+            output_image = fullfile(output_path, 'train', 'pos', [ basename, '.jpg' ]);
+            imwrite(Im, output_image);
+        else
+            % Copy/link file
+            copy_or_link_file(image_file, output_image);
+        end
     end
     
     %% Process negatives
