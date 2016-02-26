@@ -64,13 +64,14 @@ function acf_prepare_dataset (output_path, varargin)
         bbGt('bbSave', annotations, output_annotation);
         
         %% Read image, mask it, and write it to the output
+        output_image = fullfile(output_path, 'train', 'pos', [ basename, '.jpg' ]);
+
         if mask_images,
             I = imread(image_file);
             poly = load(polygon_file);
 
             Im = mask_image_with_polygon(I, poly);
 
-            output_image = fullfile(output_path, 'train', 'pos', [ basename, '.jpg' ]);
             imwrite(Im, output_image);
         else
             % Copy/link file
