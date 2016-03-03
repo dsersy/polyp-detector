@@ -1,9 +1,9 @@
-[submodule "external/caffe"]
-	path = external/caffe
-	url = https://github.com/BVLC/caffe
 [submodule "external/piotr_toolbox"]
 	path = external/piotr_toolbox
 	url = https://github.com/pdollar/toolbox
 [submodule "external/liblinear"]
 	path = external/liblinear
 	url = https://github.com/cjlin1/liblinear
+[submodule "external/cnn-feature-extractor"]
+	path = external/cnn-feature-extractor
+	url = ssh://gitolite3@vision.fe.uni-lj.si:6022/users/rokm/cnn-feature-extractor
