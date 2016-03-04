@@ -280,12 +280,13 @@ classdef PolypDetector < handle
             tp = sum( det(:,6) == 1 );
             fp = sum( det(:,6) == 0 );
             
+            accuracy = (tp + tn) / (tp + fp + fn + tn);
             precision = tp / (tp + fp);
             recall = tp / (tp + fn);
             
             %% Visualize
             if nargout == 0 || visualize,
-                fig = figure('Name', sprintf('%s: recall: %.2f%%, precision: %.2f%%', basename, 100*recall, 100*precision));
+                fig = figure('Name', sprintf('%s: accuracy: %.2f%%, recall: %.2f%%, precision: %.2f%%', basename, 100*accuracy, 100*recall, 100*precision));
                 
                 imshow(Im); hold on;
                 
@@ -332,15 +333,17 @@ classdef PolypDetector < handle
                 [ tn(i), fn(i), tp(i), fp(i) ] = self.evaluate_on_single_image(image_file, 'nms_overlap', nms_overlap, 'eval_overlap', eval_overlap);
             end
             
-            overall_tn = sum(tn);
-            overall_tp = sum(tp);
-            overall_fn = sum(fn);
-            overall_fp = sum(fp);
+            tn = sum(tn);
+            tp = sum(tp);
+            fn = sum(fn);
+            fp = sum(fp);
             
-            precision = overall_tp / (overall_tp + overall_fp);
-            recall = overall_tp / (overall_tp + overall_fn);
+            accuracy = (tp + tn) / (tp + fp + fn + tn);
+            precision = tp / (tp + fp);
+            recall = tp / (tp + fn);
             
             fprintf('\n');
+            fprintf('Accuracy: %.2f%%\n', 100*accuracy);
             fprintf('Recall: %.2f%%\n', 100*recall);
             fprintf('Precision: %.2f%%\n', 100*precision);
         end
