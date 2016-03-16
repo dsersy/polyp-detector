@@ -16,6 +16,8 @@ classdef PolypDetector < handle
         cnn_arguments
     end
     
+    
+    %% Public API
     methods
         function self = PolypDetector (varargin)
             parser = inputParser();
@@ -141,7 +143,7 @@ classdef PolypDetector < handle
             end
             
             features_cache_file = '';
-            if ~isempty(self.cache_dir),
+            if ~isempty(self.cache_dir) && ~isempty(basename),
                 features_cache_file = fullfile(self.cache_dir, 'cnn', [ basename, '.mat' ]);
             end           
 
@@ -166,7 +168,19 @@ classdef PolypDetector < handle
         
         
         
-        function detections = process_image (self, image_filename)
+        function detections = process_image (self, image_filename, varargin)
+            parser = inputParser();
+            parser.addParameter('regions_only', false, @islogical);
+            parser.addParameter('visualize_regions', false, @islogical);
+            parser.addParameter('visualize_detections', false, @islogical);
+            parser.parse(varargin{:});
+            
+            regions_only = parser.Results.regions_only;
+            visualize_regions = parser.Results.visualize_regions;
+            visualize_detections = parser.Results.visualize_detections;
+            
+            overlap_threshold = 0.3;
+            
             %% Load and prepare the image
             [ I, basename, poly, annotations ] = self.load_data(image_filename);
             
@@ -176,16 +190,16 @@ classdef PolypDetector < handle
             %% Run ACF detector
             regions = self.detect_candidate_regions(Im, 'basename', basename);
             
-            % Evaluate ACF detector
-            if true,
+            % Display ACF regions
+            if visualize_regions,
                 mask = poly2mask(poly(:,1), poly(:,2), size(I, 1), size(I,2));
                 
-                [ gt, det ] = evaluate_detections(regions, annotations, 'threshold', 0.5, 'multiple', false, 'validity_mask', mask);
+                [ gt, det ] = evaluate_detections(regions, annotations, 'threshold', overlap_threshold, 'multiple', true, 'validity_mask', mask);
                 fig = figure('Name', 'ACF detection results');
                 imshow(Im); hold on;
                 
                 % Draw ground-truth; TN and FN
-                draw_boxes(gt(gt(:,5) == 1,:), fig, 'color', 'cyan', 'line_style', '-'); % TN
+                draw_boxes(gt(gt(:,5) == 1,:), fig, 'color', 'cyan', 'line_style', '-'); % TP
                 draw_boxes(gt(gt(:,5) == 0,:), fig, 'color', 'yellow', 'line_style', '-'); % FN
                 draw_boxes(gt(gt(:,5) == -1,:), fig, 'color', 'magenta', 'line_style', '-'); % ignore
                 
@@ -193,16 +207,34 @@ classdef PolypDetector < handle
                 draw_boxes(det(det(:,6) == 1,:), fig, 'color', 'green', 'line_style', '-'); % TP
                 draw_boxes(det(det(:,6) == 0,:), fig, 'color', 'red', 'line_style', '-'); % FP
                 
+                % Create fake plots for legend entries
+                h = [];
+                h(end+1) = plot([0,0], [0,0], '-', 'Color', 'cyan', 'LineWidth', 2);
+                h(end+1) = plot([0,0], [0,0], '-', 'Color', 'yellow', 'LineWidth', 2);
+                h(end+1) = plot([0,0], [0,0], '-', 'Color', 'green', 'LineWidth', 2);
+                h(end+1) = plot([0,0], [0,0], '-', 'Color', 'red', 'LineWidth', 2);
+                h(end+1) = plot([0,0], [0,0], '-', 'Color', 'magenta', 'LineWidth', 2);
+                legend(h, 'TP (annotated)', 'FN', 'TP (det)', 'FP', 'ignore');
+                
                 % Count
-                tn = sum( gt(:,5) == 1 );
+                tp = sum( gt(:,5) == 1 );
                 fn = sum( gt(:,5) == 0 );
-                tp = sum( det(:,6) == 1 );
+                %tp = sum( det(:,6) == 1 );
                 fp = sum( det(:,6) == 0 );
                 
                 precision = 100*tp/(tp+fp);
                 recall = 100*tp/(tp+fn);
                 
-                set(fig, 'Name', sprintf('ACF: recall: %.2f%%, precision: %.2f%% ', recall, precision));
+                num_annotated = sum(gt(:,5) ~= -1);
+                num_detected = sum(det(:,6) ~= -1);
+                
+                set(fig, 'Name', sprintf('ACF: recall: %.2f%%, precision: %.2f%%; counted: %d, annotated: %d ', recall, precision, num_detected, num_annotated ));
+                drawnow();
+            end
+            
+            if regions_only,
+                detections = regions;
+                return;
             end
             
             %% Extract CNN features from detected regions
@@ -215,21 +247,81 @@ classdef PolypDetector < handle
             [ labels, scores, probabilities ] = self.svm_classifier.predict(features);
             fprintf(' > Done in %f seconds!\n', toc(t));
             
+            positive_mask = scores > 0;
+            positive_regions = regions(positive_mask,1:4);
+            positive_scores = scores(positive_mask);
+            positive_proba = probabilities(positive_mask);
+            
             %% Additional NMS on top of SVM predictions
             fprintf('Performing NMS on top of SVM predictions...\n');
             
-            detections = bbNms([ regions, scores' ], ...
-                'type', 'maxg', ...
+            detections = bbNms([ positive_regions, positive_scores' ], ...
+                'type', 'none', ...
                 'overlap', 0.50, ...
-                'ovrDnm', 'min');
+                'ovrDnm', 'union');
             
-            fprintf(' > Done in %f seconds!\n', toc(t));            
+            fprintf(' > Done in %f seconds!\n', toc(t));
+            
+            % Display detections
+            if visualize_detections,
+                mask = poly2mask(poly(:,1), poly(:,2), size(I, 1), size(I,2));
+                
+                [ gt, det ] = evaluate_detections(detections, annotations, 'threshold', overlap_threshold, 'multiple', false, 'validity_mask', mask);
+                fig = figure('Name', 'Full detection results');
+                imshow(Im); hold on;
+                
+                % Draw ground-truth; TN and FN
+                draw_boxes(gt(gt(:,5) == 1,:), fig, 'color', 'cyan', 'line_style', '-'); % TP
+                draw_boxes(gt(gt(:,5) == 0,:), fig, 'color', 'yellow', 'line_style', '-'); % FN
+                draw_boxes(gt(gt(:,5) == -1,:), fig, 'color', 'magenta', 'line_style', '-'); % ignore
+                
+                % Draw detections; TP and FP
+                draw_boxes(det(det(:,6) == 1,:), fig, 'color', 'green', 'line_style', '-'); % TP
+                draw_boxes(det(det(:,6) == 0,:), fig, 'color', 'red', 'line_style', '-'); % FP
+                
+                % Create fake plots for legend entries
+                h = [];
+                h(end+1) = plot([0,0], [0,0], '-', 'Color', 'cyan', 'LineWidth', 2);
+                h(end+1) = plot([0,0], [0,0], '-', 'Color', 'yellow', 'LineWidth', 2);
+                h(end+1) = plot([0,0], [0,0], '-', 'Color', 'green', 'LineWidth', 2);
+                h(end+1) = plot([0,0], [0,0], '-', 'Color', 'red', 'LineWidth', 2);
+                h(end+1) = plot([0,0], [0,0], '-', 'Color', 'magenta', 'LineWidth', 2);
+                legend(h, 'TP (annotated)', 'FN', 'TP (det)', 'FP', 'ignore');
+                
+                % Count
+                tp = sum( gt(:,5) == 1 );
+                fn = sum( gt(:,5) == 0 );
+                %tp = sum( det(:,6) == 1 );
+                fp = sum( det(:,6) == 0 );
+                
+                precision = 100*tp/(tp+fp);
+                recall = 100*tp/(tp+fn);
+                
+                num_annotated = sum(gt(:,5) ~= -1);
+                num_detected = sum(det(:,6) ~= -1);
+                
+                set(fig, 'Name', sprintf('Full pipeline: recall: %.2f%%, precision: %.2f%%, counted: %d, annotated: %d ', recall, precision, num_detected, num_annotated));
+                drawnow();
+            end
+            
         end
         
-        function train_svm_classifier (self)
-            train_images = self.default_train_images;
+        function train_svm_classifier (self, varargin)
+            parser = inputParser();
+            parser.addParameter('positive_overlap', 0.5, @isscalar);
+            parser.addParameter('train_images', self.default_train_images, @iscell);
+            parser.addParameter('svm_function', @() classifier.LIBLINEAR());
+            parser.parse(varargin{:});
+            
+            train_images = parser.Results.train_images;
+            positive_overlap = parser.Results.positive_overlap;
+            svm_function = parser.Results.svm_function;
+            
+            %% Process all train images to get the features and boxes
             num_images = numel(train_images);
             
+            all_features = cell(1, num_images);
+            all_labels = cell(1, num_images);
             for i = 1:num_images,
                 image_file = train_images{i};
                 fprintf('Processing train image #%d/%d: %s\n', i, num_images, train_images{i});
@@ -244,8 +336,37 @@ classdef PolypDetector < handle
                 regions = self.detect_candidate_regions(Im, 'basename', basename);
                 
                 % Determine whether boxes are positive or negative
+                mask = poly2mask(poly(:,1), poly(:,2), size(I, 1), size(I,2));
+                [ ~, regions ] = evaluate_detections(regions, annotations, 'threshold', positive_overlap, 'multiple', true, 'validity_mask', mask);
+
+                % Determine labels, remove ignored regions
+                labels = regions(:,6);
+                
+                invalid_mask = labels == -1;
+                regions(invalid_mask, :) = [];
+                labels = regions(:,6);
                 
                 % Extract CNN features
+                features = self.extract_features_from_regions(I, regions);
+                                
+                % Add to the output
+                all_features{i} = features;
+                all_labels{i} = 2*labels - 1;
+            end
+            
+            %% Train the SVM
+            % Gather 
+            all_features = horzcat( all_features{:} );
+            all_labels = vertcat( all_labels{:} );
+            
+            fprintf('Training SVM with %d samples, %d positive (%.2f%%), %d negative (%.2f%%)\n', numel(all_labels), sum(all_labels==1), 100*sum(all_labels==1)/numel(all_labels), sum(all_labels==-1), 100*sum(all_labels==-1)/numel(all_labels));
+            
+            % Train
+            svm = svm_function(); % Create SVM
+            svm.train(all_features, all_labels);
+            
+            if nargout < 1,
+                self.svm_classifier = svm;
             end
         end
         
@@ -331,6 +452,11 @@ classdef PolypDetector < handle
                 fprintf('Processing test image #%d/%d: %s\n', i, num_images, test_images{i});
                 
                 [ tn(i), fn(i), tp(i), fp(i) ] = self.evaluate_on_single_image(image_file, 'nms_overlap', nms_overlap, 'eval_overlap', eval_overlap);
+                
+                tmp_accuracy = (tp(i) + tn(i)) / (tp(i) + fp(i) + fn(i) + tn(i));
+                tmp_precision = tp(i) / (tp(i) + fp(i));
+                tmp_recall = tp(i) / (tp(i) + fn(i));
+                fprintf(' > accuracy: %.2f%%, recall: %.2f%%, precision: %.2f%%\n', 100*tmp_accuracy, 100*tmp_recall, 100*tmp_precision);
             end
             
             tn = sum(tn);
