@@ -4,8 +4,6 @@ classdef PolypDetector < handle
     % (C) 2016 Rok Mandeljc <rok.mandeljc@fri.uni-lj.si>
     
     properties
-        cache_dir
-        
         % Detection pipeline components
         acf_detector
         cnn_extractor
@@ -23,11 +21,7 @@ classdef PolypDetector < handle
             parser = inputParser();
             parser.addParameter('acf_detector', 'detector/acf-polyp-default.mat', @ischar);
             parser.addParameter('cnn_arguments', {}, @iscell);
-            parser.addParameter('cache_dir', '', @ischar);
             parser.parse(varargin{:});
-            
-            % Cache path
-            self.cache_dir = parser.Results.cache_dir;
             
             % Create ACF detector wrapper
             acf_detector_file = parser.Results.acf_detector;
@@ -37,8 +31,10 @@ classdef PolypDetector < handle
             self.cnn_arguments = parser.Results.cnn_arguments;
             self.cnn_extractor = CnnFeatureExtractor(self.cnn_arguments{:});
         end
+    end
         
-        
+    % Processing pipeline steps
+    methods
         function [ I, basename, poly, boxes ] = load_data (self, image_filename)
             % [ I, basename, poly, annotations ] = LOAD_DATA (self, image_filename)
             %
@@ -83,49 +79,58 @@ classdef PolypDetector < handle
             end
         end
         
-        function regions = detect_candidate_regions (self, I, varargin)
-            % regions = DETECT_CANDIDATE_REGIONS (self, I, varargin)
+        function [ regions, time_det, time_nms ] = detect_candidate_regions (self, I, varargin)
+            % [ regions, time_det, time_nms ] = DETECT_CANDIDATE_REGIONS (self, I, varargin)
             %
             % Detects candidate regions in the given image.
             %
             % Input:
             %  - self: @PolypDetector instance
             %  - I: image
-            %  - basename: image basename, used for caching
+            %  - varargin: additional key/value pairs
+            %    - cache_file: cache file to use, if provided
+            %    - nms_overlap: the overlap threshold for the initial
+            %      non-maxima suppression pass
             %
             % Output:
-            %  - regions:
+            %  - regions: detected regions
+            %  - time_det: time spent in region detection
+            %  - time_nms: time spent in the first non-maxima suppression
+            %    pass
             
             parser = inputParser();
-            parser.addParameter('basename', '', @ischar);
+            parser.addParameter('cache_file', '', @ischar);
             parser.addParameter('nms_overlap', 0.5, @isnumeric);
             parser.parse(varargin{:});
             
-            basename = parser.Results.basename;
+            cache_file = parser.Results.cache_file;
             nms_overlap = parser.Results.nms_overlap;
             
-            % Run ACF detector
-            acf_cache_file = '';
-            if ~isempty(self.cache_dir),
-                acf_cache_file = fullfile(self.cache_dir, sprintf('acf_%s_nms-%g', self.acf_detector.name, nms_overlap), [ basename, '.mat' ]);
-            end
-            
-            if ~isempty(acf_cache_file) && exist(acf_cache_file, 'file'),
-                tmp = load(acf_cache_file);
+            if ~isempty(cache_file) && exist(cache_file, 'file'),
+                % Load from cache
+                tmp = load(cache_file);
+                
+                % Validate cache file
+                assert(nms_overlap == tmp.nms_overlap, 'Invalid cache file; nms_overlap mismatch!');
+                
+                % Copy from cache
                 regions = tmp.regions;
+                time_det = tmp.time_det;
+                time_nms = tmp.time_nms;
             else
+                % Run ACF detector
                 [ regions, regions_all, time_det, time_nms ] = self.acf_detector.detect(I, 'nms_overlap', nms_overlap);
                 
-                if ~isempty(acf_cache_file),
-                    % Save to cache file
-                    ensure_path_exists(acf_cache_file);
-                    save(acf_cache_file, 'regions', 'regions_all', 'time_det', 'time_nms');
+                % Save to cache
+                if ~isempty(cache_file),
+                    ensure_path_exists(cache_file);
+                    save(cache_file, 'regions', 'regions_all', 'time_det', 'time_nms', 'nms_overlap');
                 end
             end
         end
         
-        function features = extract_features_from_regions (self, I, regions, basename)
-            % features = EXTRACT_FEATURES_FROM_REGIONS (self, I, regions, basename)
+        function [ features, time ] = extract_features_from_regions (self, I, regions, varargin)
+            % features = EXTRACT_FEATURES_FROM_REGIONS (self, I, regions)
             %
             % Extract CNN features from given regions.
             %
@@ -133,23 +138,29 @@ classdef PolypDetector < handle
             %  - self: @PolypDetector instance
             %  - I: image
             %  - regions: Nx4 matrix describing regions
-            %  - basename: image basename, used for caching
+            %  - varargin: additional key/value pairs
+            %    - cache_file: cache file to use, if provided
             %
             % Output:
             %  - features: DxN matrix of extracted features
+            %  - time: time spent in feature extraction
             
-            if ~exist('basename', 'var'),
-                basename = '';
-            end
+            parser = inputParser();
+            parser.addParameter('cache_file', '', @ischar);
+            parser.parse(varargin{:});
             
-            features_cache_file = '';
-            if ~isempty(self.cache_dir) && ~isempty(basename),
-                features_cache_file = fullfile(self.cache_dir, 'cnn', [ basename, '.mat' ]);
-            end           
-
-            if ~isempty(features_cache_file) && exist(features_cache_file, 'file'),
-                tmp = load(features_cache_file);
+            cache_file = parser.Results.cache_file;
+            
+            if ~isempty(cache_file) && exist(cache_file, 'file'),
+                % Load from cache
+                tmp = load(cache_file);
+                
+                % Validate cache file
+                assert(size(regions, 1) == size(tmp.features, 2), 'Invalid cache file; mismatch between number of regions and stored feature vectors!');
+                
+                % Copy from cache
                 features = tmp.features;
+                time = tmp.time;
             else
                 % Convert [ x, y, w, h ] to [ x1, y1, x2, y2 ], in 4xN format
                 boxes = [ regions(:,1), regions(:,2), regions(:,1)+regions(:,3)+1, regions(:,2)+regions(:,4)+1 ]';
@@ -157,64 +168,162 @@ classdef PolypDetector < handle
                 % Extract CNN features
                 [ features, time ] = self.cnn_extractor.extract(I, 'regions', boxes);
                 
-                if ~isempty(features_cache_file),
-                    % Save to cache file
-                    ensure_path_exists(features_cache_file);
-                    save(features_cache_file, 'features', 'time');
+                % Save to cache
+                if ~isempty(cache_file),
+                    ensure_path_exists(cache_file);
+                    save(cache_file, 'features', 'time');
                 end
             end
         end
-        
-        
-        
-        
-        function detections = process_image (self, image_filename, varargin)
+    end
+
+    
+    methods
+        function fig = visualize_results (self, I, polygon, annotations, detections, varargin)
+            % fig = VISUALIZE_RESULTS (self, I, polygon, annotations, detections, varargin)
+            
             parser = inputParser();
-            parser.addParameter('regions_only', false, @islogical);
-            parser.addParameter('visualize_regions', false, @islogical);
-            parser.addParameter('visualize_detections', false, @islogical);
+            parser.addParameter('fig', [], @ishandle);
+            parser.addParameter('multiple_matches', false, @islogical);
+            parser.addParameter('overlap_threshold', 0.3, @isnumeric);
+            parser.addParameter('prefix', '', @ischar);
             parser.parse(varargin{:});
             
-            regions_only = parser.Results.regions_only;
-            visualize_regions = parser.Results.visualize_regions;
-            visualize_detections = parser.Results.visualize_detections;
+            fig = parser.Results.fig;
+            multiple_matches = parser.Results.multiple_matches;
+            overlap_threshold = parser.Results.overlap_threshold;
+            prefix = parser.Results.prefix;
+            
+            % Create mask
+            mask = poly2mask(polygon(:,1), polygon(:,2), size(I, 1), size(I,2));
+            
+            % Evaluate detections
+            [ gt, det ] = evaluate_detections(detections, annotations, 'threshold', overlap_threshold, 'multiple', multiple_matches, 'validity_mask', mask);
+            
+            if isempty(fig),
+                fig = figure();
+            else
+                set(groot, 'CurrentFigure', fig);
+            end
+            clf(fig);
+            
+            % Show image
+            Im = uint8( bsxfun(@times, double(I), 0.50*mask + 0.50) );
+            imshow(Im);
+            hold on;
+            
+            % Draw ground-truth; TN and FN
+            draw_boxes(gt(gt(:,5) == 1,:), fig, 'color', 'cyan', 'line_style', '-'); % TP
+            draw_boxes(gt(gt(:,5) == 0,:), fig, 'color', 'yellow', 'line_style', '-'); % FN
+            draw_boxes(gt(gt(:,5) == -1,:), fig, 'color', 'magenta', 'line_style', '-'); % ignore
+                
+            % Draw detections; TP and FP
+            draw_boxes(det(det(:,6) == 1,:), fig, 'color', 'green', 'line_style', '-'); % TP
+            draw_boxes(det(det(:,6) == 0,:), fig, 'color', 'red', 'line_style', '-'); % FP
+                
+            % Create fake plots for legend entries
+            h = [];
+            h(end+1) = plot([0,0], [0,0], '-', 'Color', 'cyan', 'LineWidth', 2);
+            h(end+1) = plot([0,0], [0,0], '-', 'Color', 'yellow', 'LineWidth', 2);
+            h(end+1) = plot([0,0], [0,0], '-', 'Color', 'green', 'LineWidth', 2);
+            h(end+1) = plot([0,0], [0,0], '-', 'Color', 'red', 'LineWidth', 2);
+            h(end+1) = plot([0,0], [0,0], '-', 'Color', 'magenta', 'LineWidth', 2);
+            legend(h, 'TP (annotated)', 'FN', 'TP (det)', 'FP', 'ignore');
+                
+            % Count
+            tp = sum( gt(:,5) == 1 );
+            fn = sum( gt(:,5) == 0 );
+            %tp = sum( det(:,6) == 1 );
+            fp = sum( det(:,6) == 0 );
+                
+            precision = 100*tp/(tp+fp);
+            recall = 100*tp/(tp+fn);
+                
+            num_annotated = sum(gt(:,5) ~= -1);
+            num_detected = sum(det(:,6) ~= -1);
+
+            if ~isempty(prefix),
+                prefix = sprintf('%s: ', prefix);
+            end
+            title = sprintf('%srecall: %.2f%%, precision: %.2f%%; counted: %d, annotated: %d ', prefix, recall, precision, num_detected, num_annotated);
+            
+            set(fig, 'Name', title);
+            drawnow();
+        end
+    end
+
+    
+    methods
+        function leave_one_out_cross_validation (self, result_dir)
+            % LEAVE_ONE_OUT_CROSS_VALIDATION (self, result_dir)
             
             overlap_threshold = 0.3;
             
-            %% Load and prepare the image
-            [ I, basename, poly, annotations ] = self.load_data(image_filename);
+            % Cache 
+            cache_dir = fullfile(result_dir, 'cache');
             
-            % Mask the image
-            Im = mask_image_with_polygon(I, poly);
+            % Create list of images
+            images = union(self.default_train_images, self.default_test_images);
             
-            %% Run ACF detector
-            regions = self.detect_candidate_regions(Im, 'basename', basename);
+            % Store old classifier
+            old_classifier = self.svm_classifier;
             
-            % Display ACF regions
-            if visualize_regions,
+            %% Leave-one-out loop
+            all_results = repmat(struct(...
+                                  'image_name', '', ...
+                                  'tp', 0, ...
+                                  'fn', 0, ...
+                                  'fp', 0, ...
+                                  'precision', 0, ...
+                                  'recall', 0, ...
+                                  'num_annotated', 0, ...
+                                  'num_detected', 0), 1, numel(images));
+                              
+            for i = 1:numel(images),
+                train_images = images;
+                train_images(i) = [];
+                
+                test_image = images{i};
+                
+                % Load test image
+                [ I, basename, poly, annotations ] = self.load_data(test_image);
+
+                % Try loading result from cache
+                results_file = fullfile(result_dir, [ basename, '.mat' ]);
+                if exist(results_file, 'file'),
+                    results = load(results_file);
+                    all_results(i) = results;
+                    continue;
+                end
+                
+                %% Train SVM
+                classifier_file = fullfile(result_dir, 'classifiers', [ basename, '.mat' ]);
+                if exist(classifier_file, 'file'),
+                    % Load from file
+                    tmp = load(classifier_file);
+                    self.svm_classifier = tmp.classifier;
+                else
+                    % Train
+                    t = tic();
+                    self.train_svm_classifier('train_images', train_images, 'cache_dir', cache_dir);
+                    time = toc(t);
+                    
+                    % Save
+                    classifier = self.svm_classifier;
+                    classifier_file = fullfile(result_dir, 'classifiers', [ basename, '.mat' ]);
+                    ensure_path_exists(classifier_file);
+                    save(classifier_file, 'classifier', 'time');
+                end
+                
+                %% Process the left-out image
+                detections = self.process_image(test_image, 'cache_dir', cache_dir);
+                
+                %% Evaluate
+                % Create mask
                 mask = poly2mask(poly(:,1), poly(:,2), size(I, 1), size(I,2));
-                
-                [ gt, det ] = evaluate_detections(regions, annotations, 'threshold', overlap_threshold, 'multiple', true, 'validity_mask', mask);
-                fig = figure('Name', 'ACF detection results');
-                imshow(Im); hold on;
-                
-                % Draw ground-truth; TN and FN
-                draw_boxes(gt(gt(:,5) == 1,:), fig, 'color', 'cyan', 'line_style', '-'); % TP
-                draw_boxes(gt(gt(:,5) == 0,:), fig, 'color', 'yellow', 'line_style', '-'); % FN
-                draw_boxes(gt(gt(:,5) == -1,:), fig, 'color', 'magenta', 'line_style', '-'); % ignore
-                
-                % Draw detections; TP and FP
-                draw_boxes(det(det(:,6) == 1,:), fig, 'color', 'green', 'line_style', '-'); % TP
-                draw_boxes(det(det(:,6) == 0,:), fig, 'color', 'red', 'line_style', '-'); % FP
-                
-                % Create fake plots for legend entries
-                h = [];
-                h(end+1) = plot([0,0], [0,0], '-', 'Color', 'cyan', 'LineWidth', 2);
-                h(end+1) = plot([0,0], [0,0], '-', 'Color', 'yellow', 'LineWidth', 2);
-                h(end+1) = plot([0,0], [0,0], '-', 'Color', 'green', 'LineWidth', 2);
-                h(end+1) = plot([0,0], [0,0], '-', 'Color', 'red', 'LineWidth', 2);
-                h(end+1) = plot([0,0], [0,0], '-', 'Color', 'magenta', 'LineWidth', 2);
-                legend(h, 'TP (annotated)', 'FN', 'TP (det)', 'FP', 'ignore');
+            
+                % Evaluate detections
+                [ gt, det ] = evaluate_detections(detections, annotations, 'threshold', overlap_threshold, 'multiple', false, 'validity_mask', mask);
                 
                 % Count
                 tp = sum( gt(:,5) == 1 );
@@ -226,10 +335,86 @@ classdef PolypDetector < handle
                 recall = 100*tp/(tp+fn);
                 
                 num_annotated = sum(gt(:,5) ~= -1);
-                num_detected = sum(det(:,6) ~= -1);
+                num_detected = sum(det(:,6) ~= -1);                
                 
-                set(fig, 'Name', sprintf('ACF: recall: %.2f%%, precision: %.2f%%; counted: %d, annotated: %d ', recall, precision, num_detected, num_annotated ));
-                drawnow();
+                %% Store results
+                results.image_name = test_image;
+                results.tp = tp;
+                results.fn = fn;
+                results.fp = fp;
+                results.precision = precision;
+                results.recall = recall;
+                results.num_annotated = num_annotated;
+                results.num_detected = num_detected;
+                
+                ensure_path_exists(results_file);
+                save(results_file, '-struct', 'results');
+                
+                all_results(i) = results;
+            end
+            
+            save(fullfile(result_dir, 'all_results.mat'), 'all_results');
+            
+            % Restore old classifier
+            self.svm_classifier = old_classifier;
+        end
+    end
+    
+    
+    methods
+        function detections = process_image (self, image_filename, varargin)
+            % detections = PROCESS_IMAGE (self, image_filename, varargin)
+            %
+            % Processes the given input image.
+            %
+            % Input:
+            %  - self: @PolypDetector instance
+            %  - image_filename: name of the input image
+            %  - varargin: additional key/value pairs:
+            %    - cache_dir: path to cache directory
+            %    - regions_only: boolean indicating whether to detect only
+            %      region proposals (first stage) or final detections (full
+            %      pipeline). Default: false
+            %    - visualize_regions: whether to visualize detected regions
+            %      or not (default: false)
+            %    - visualize_detections: whether to visualize obtained
+            %      detections (default: false)
+            %    - overlap_threshold: overlap threshold used for
+            %      visualization of region proposals/detections
+            parser = inputParser();
+            parser.addParameter('cache_dir', '', @ischar);
+            parser.addParameter('regions_only', false, @islogical);
+            parser.addParameter('visualize_regions', false, @islogical);
+            parser.addParameter('visualize_detections', false, @islogical);
+            parser.addParameter('overlap_threshold', 0.3, @isnumeric);
+            parser.parse(varargin{:});
+            
+            cache_dir = parser.Results.cache_dir;
+            regions_only = parser.Results.regions_only;
+            visualize_regions = parser.Results.visualize_regions;
+            visualize_detections = parser.Results.visualize_detections;
+            overlap_threshold = parser.Results.overlap_threshold;
+            
+            %% Load and prepare the image
+            [ I, basename, poly, annotations ] = self.load_data(image_filename);
+            
+            % Mask the image
+            Im = mask_image_with_polygon(I, poly);
+            
+            %% *** 1st stage: region proposal ***
+            %% Run ACF detector
+            if ~isempty(cache_dir),
+                acf_cache_file = fullfile(cache_dir, 'acf-cache', [ basename, '.mat' ]);
+            else
+                acf_cache_file = '';
+            end
+            
+            % Detect
+            regions = self.detect_candidate_regions(Im, 'cache_file', acf_cache_file);
+            
+            % Display ACF regions
+            if visualize_regions,
+                self.visualize_results(I, poly, annotations, regions, 'multiple_matches', true, 'overlap_threshold', overlap_threshold, 'prefix', sprintf('%s: ACF', basename));
             end
             
             if regions_only,
@@ -237,15 +422,24 @@ classdef PolypDetector < handle
                 return;
             end
             
+            %% *** 2nd stage: region classification ***
+            % Make sure we have an SVM classifier ready
+            assert(~isempty(self.svm_classifier), 'Invalid SVM classifier; cannot classify regions!');
+            
             %% Extract CNN features from detected regions
             % Make sure to extract from original image, and not masked one!
-            features = self.extract_features_from_regions(I, regions);
+            if ~isempty(cache_dir),
+                cnn_cache_file = fullfile(cache_dir, 'cnn-cache', [ basename, '.mat' ]);
+            else
+                cnn_cache_file = '';
+            end
+            
+            % Extract
+            features = self.extract_features_from_regions(I, regions, 'cache_file', cnn_cache_file);
             
             %% Classify with SVM
             fprintf('Performing SVM classification...\n');
-            t = tic();
             [ labels, scores, probabilities ] = self.svm_classifier.predict(features);
-            fprintf(' > Done in %f seconds!\n', toc(t));
             
             positive_mask = scores > 0;
             positive_regions = regions(positive_mask,1:4);
@@ -259,60 +453,22 @@ classdef PolypDetector < handle
                 'type', 'none', ...
                 'overlap', 0.50, ...
                 'ovrDnm', 'union');
-            
-            fprintf(' > Done in %f seconds!\n', toc(t));
-            
+                        
             % Display detections
             if visualize_detections,
-                mask = poly2mask(poly(:,1), poly(:,2), size(I, 1), size(I,2));
-                
-                [ gt, det ] = evaluate_detections(detections, annotations, 'threshold', overlap_threshold, 'multiple', false, 'validity_mask', mask);
-                fig = figure('Name', 'Full detection results');
-                imshow(Im); hold on;
-                
-                % Draw ground-truth; TN and FN
-                draw_boxes(gt(gt(:,5) == 1,:), fig, 'color', 'cyan', 'line_style', '-'); % TP
-                draw_boxes(gt(gt(:,5) == 0,:), fig, 'color', 'yellow', 'line_style', '-'); % FN
-                draw_boxes(gt(gt(:,5) == -1,:), fig, 'color', 'magenta', 'line_style', '-'); % ignore
-                
-                % Draw detections; TP and FP
-                draw_boxes(det(det(:,6) == 1,:), fig, 'color', 'green', 'line_style', '-'); % TP
-                draw_boxes(det(det(:,6) == 0,:), fig, 'color', 'red', 'line_style', '-'); % FP
-                
-                % Create fake plots for legend entries
-                h = [];
-                h(end+1) = plot([0,0], [0,0], '-', 'Color', 'cyan', 'LineWidth', 2);
-                h(end+1) = plot([0,0], [0,0], '-', 'Color', 'yellow', 'LineWidth', 2);
-                h(end+1) = plot([0,0], [0,0], '-', 'Color', 'green', 'LineWidth', 2);
-                h(end+1) = plot([0,0], [0,0], '-', 'Color', 'red', 'LineWidth', 2);
-                h(end+1) = plot([0,0], [0,0], '-', 'Color', 'magenta', 'LineWidth', 2);
-                legend(h, 'TP (annotated)', 'FN', 'TP (det)', 'FP', 'ignore');
-                
-                % Count
-                tp = sum( gt(:,5) == 1 );
-                fn = sum( gt(:,5) == 0 );
-                %tp = sum( det(:,6) == 1 );
-                fp = sum( det(:,6) == 0 );
-                
-                precision = 100*tp/(tp+fp);
-                recall = 100*tp/(tp+fn);
-                
-                num_annotated = sum(gt(:,5) ~= -1);
-                num_detected = sum(det(:,6) ~= -1);
-                
-                set(fig, 'Name', sprintf('Full pipeline: recall: %.2f%%, precision: %.2f%%, counted: %d, annotated: %d ', recall, precision, num_detected, num_annotated));
-                drawnow();
+                self.visualize_results(I, poly, annotations, detections, 'multiple_matches', false, 'overlap_threshold', overlap_threshold, 'prefix', sprintf('%s: Final', basename));
             end
-            
         end
         
-        function train_svm_classifier (self, varargin)
+        function svm = train_svm_classifier (self, varargin)
             parser = inputParser();
+            parser.addParameter('cache_dir', '', @ischar);
             parser.addParameter('positive_overlap', 0.5, @isscalar);
             parser.addParameter('train_images', self.default_train_images, @iscell);
             parser.addParameter('svm_function', @() classifier.LIBLINEAR());
             parser.parse(varargin{:});
             
+            cache_dir = parser.Results.cache_dir;
             train_images = parser.Results.train_images;
             positive_overlap = parser.Results.positive_overlap;
             svm_function = parser.Results.svm_function;
@@ -326,29 +482,35 @@ classdef PolypDetector < handle
                 image_file = train_images{i};
                 fprintf('Processing train image #%d/%d: %s\n', i, num_images, train_images{i});
                 
-                % Load image
+                % Detect regions in the image
                 [ I, basename, poly, annotations ] = self.load_data(image_file);
-                
-                % Mask image
-                Im = mask_image_with_polygon(I, poly);
-                
-                % Run ACF
-                regions = self.detect_candidate_regions(Im, 'basename', basename);
-                
+                regions = self.process_image(image_file, 'regions_only', true, 'cache_dir', cache_dir);
+
                 % Determine whether boxes are positive or negative
                 mask = poly2mask(poly(:,1), poly(:,2), size(I, 1), size(I,2));
                 [ ~, regions ] = evaluate_detections(regions, annotations, 'threshold', positive_overlap, 'multiple', true, 'validity_mask', mask);
+
+                % Extract CNN features
+                % NOTE: we extract features from all regions, even the ones
+                % that will be later discarded, in order to keep cache
+                % files consistent with those produced by the
+                % process_image() function!
+                if ~isempty(cache_dir),
+                    cnn_cache_file = fullfile(cache_dir, 'cnn-cache', [ basename, '.mat' ]);
+                else
+                    cnn_cache_file = '';
+                end
+                features = self.extract_features_from_regions(I, regions, 'cache_file', cnn_cache_file);
 
                 % Determine labels, remove ignored regions
                 labels = regions(:,6);
                 
                 invalid_mask = labels == -1;
                 regions(invalid_mask, :) = [];
-                labels = regions(:,6);
                 
-                % Extract CNN features
-                features = self.extract_features_from_regions(I, regions);
-                                
+                labels = regions(:,6);
+                features(:,invalid_mask) = [];
+                
                 % Add to the output
                 all_features{i} = features;
                 all_labels{i} = 2*labels - 1;
@@ -368,110 +530,6 @@ classdef PolypDetector < handle
             if nargout < 1,
                 self.svm_classifier = svm;
             end
-        end
-        
-        function [ tn, fn, tp, fp ] = evaluate_on_single_image (self, image_file, varargin)
-            parser = inputParser();
-            parser.addParameter('nms_overlap', 0.5, @isnumeric);
-            parser.addParameter('eval_overlap', 0.5, @isnumeric);
-            parser.addParameter('visualize', false, @islogical);
-            parser.parse(varargin{:});
-            
-            nms_overlap = parser.Results.nms_overlap;
-            eval_overlap = parser.Results.eval_overlap;
-            visualize = parser.Results.visualize;
-            
-            %% Process image
-            % Load image
-            [ I, basename, poly, annotations ] = self.load_data(image_file);
-                
-            % Mask image
-            Im = mask_image_with_polygon(I, poly);
-                
-            % Run ACF
-            regions = self.detect_candidate_regions(Im, 'basename', basename, 'nms_overlap', nms_overlap);
-                
-            %% Evaluate
-            mask = poly2mask(poly(:,1), poly(:,2), size(I, 1), size(I,2));
-                
-            [ gt, det ] = evaluate_detections(regions, annotations, 'threshold', eval_overlap, 'multiple', true, 'validity_mask', mask);
-            
-            tn = sum( gt(:,5) == 1 );
-            fn = sum( gt(:,5) == 0 );
-            tp = sum( det(:,6) == 1 );
-            fp = sum( det(:,6) == 0 );
-            
-            accuracy = (tp + tn) / (tp + fp + fn + tn);
-            precision = tp / (tp + fp);
-            recall = tp / (tp + fn);
-            
-            %% Visualize
-            if nargout == 0 || visualize,
-                fig = figure('Name', sprintf('%s: accuracy: %.2f%%, recall: %.2f%%, precision: %.2f%%', basename, 100*accuracy, 100*recall, 100*precision));
-                
-                imshow(Im); hold on;
-                
-                % Draw ground-truth; TN and FN
-                draw_boxes(gt(gt(:,5) == 1,:), fig, 'color', 'cyan', 'line_style', '-'); % TN
-                draw_boxes(gt(gt(:,5) == 0,:), fig, 'color', 'yellow', 'line_style', '-'); % FN
-                draw_boxes(gt(gt(:,5) == -1,:), fig, 'color', 'magenta', 'line_style', '-'); % ignore
-                
-                % Draw detections; TP and FP
-                draw_boxes(det(det(:,6) == 1,:), fig, 'color', 'green', 'line_style', '-'); % TP
-                draw_boxes(det(det(:,6) == 0,:), fig, 'color', 'red', 'line_style', '-'); % FP
-            end
-        end
-        
-        function evaluate_region_proposals (self, varargin)
-            parser = inputParser();
-            parser.addParameter('test_images', self.default_test_images, @iscell);
-            parser.addParameter('nms_overlap', 0.5, @isnumeric);
-            parser.addParameter('eval_overlap', 0.5, @isnumeric);
-            parser.parse(varargin{:});
-            
-            test_images = parser.Results.test_images;
-            nms_overlap = parser.Results.nms_overlap;
-            eval_overlap = parser.Results.eval_overlap;
-            
-            fprintf('*** Evaluating ACF region proposals ***\n');
-            fprintf('NMS overlap: %g\n', nms_overlap);
-            fprintf('evaluation overlap: %g\n', eval_overlap);
-            fprintf('\n');
-            
-            %% Process
-            num_images = numel(test_images);
-            
-            % Allocate variables
-            tp = nan(1, num_images);
-            fp = nan(1, num_images);
-            tn = nan(1, num_images);
-            fn = nan(1, num_images);
-            
-            for i = 1:num_images,
-                image_file = test_images{i};
-                fprintf('Processing test image #%d/%d: %s\n', i, num_images, test_images{i});
-                
-                [ tn(i), fn(i), tp(i), fp(i) ] = self.evaluate_on_single_image(image_file, 'nms_overlap', nms_overlap, 'eval_overlap', eval_overlap);
-                
-                tmp_accuracy = (tp(i) + tn(i)) / (tp(i) + fp(i) + fn(i) + tn(i));
-                tmp_precision = tp(i) / (tp(i) + fp(i));
-                tmp_recall = tp(i) / (tp(i) + fn(i));
-                fprintf(' > accuracy: %.2f%%, recall: %.2f%%, precision: %.2f%%\n', 100*tmp_accuracy, 100*tmp_recall, 100*tmp_precision);
-            end
-            
-            tn = sum(tn);
-            tp = sum(tp);
-            fn = sum(fn);
-            fp = sum(fp);
-            
-            accuracy = (tp + tn) / (tp + fp + fn + tn);
-            precision = tp / (tp + fp);
-            recall = tp / (tp + fn);
-            
-            fprintf('\n');
-            fprintf('Accuracy: %.2f%%\n', 100*accuracy);
-            fprintf('Recall: %.2f%%\n', 100*recall);
-            fprintf('Precision: %.2f%%\n', 100*precision);
         end
     end
     

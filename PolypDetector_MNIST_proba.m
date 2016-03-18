@@ -4,9 +4,6 @@ classdef PolypDetector_MNIST_proba < PolypDetector
     methods
         function self = PolypDetector_MNIST_proba ()
             root_dir = fileparts(mfilename('fullpath'));
-
-            % Cache folder
-            cache_dir = 'cache-mnist-proba';
             
             % ACF detector
             acf_detector_name = fullfile(root_dir, 'detector', 'acf-polyp-default.mat');
@@ -22,7 +19,7 @@ classdef PolypDetector_MNIST_proba < PolypDetector
                 'use_gpu', true ...
             };
 
-            self@PolypDetector('cache_dir', cache_dir, 'acf_detector', acf_detector_name, 'cnn_arguments', cnn_arguments);
+            self@PolypDetector('acf_detector', acf_detector_name, 'cnn_arguments', cnn_arguments);
         end
     end
 end
