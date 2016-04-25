@@ -543,12 +543,12 @@ classdef PolypDetector < handle
             parser = inputParser();
             parser.addParameter('cache_dir', '', @ischar);
             parser.addParameter('train_images', self.default_train_images, @iscell);
-            parser.addParameter('draw_negative_samples', false, @islogical);
+            parser.addParameter('draw_svm_samples', false, @islogical);
             parser.parse(varargin{:});
             
             cache_dir = parser.Results.cache_dir;
             train_images = parser.Results.train_images;
-            draw_negative_samples = parser.Results.draw_negative_samples;
+            draw_svm_samples = parser.Results.draw_svm_samples;
             
             %% Process all train images to get the features and boxes
             num_images = numel(train_images);
@@ -595,7 +595,7 @@ classdef PolypDetector < handle
                 all_labels{i} = 2*labels - 1;
                 
                 %% Visualize negative samples
-                if draw_negative_samples,
+                if draw_svm_samples,
                     fig = figure('Name', sprintf('SVM training samples: %s', basename));
                     clf(fig);
 
