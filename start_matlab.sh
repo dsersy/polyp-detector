@@ -1,3 +1,5 @@
+#!/bin/sh
+
 # Matlab
 MATLABDIR=/usr/local/MATLAB/R2015b
 
