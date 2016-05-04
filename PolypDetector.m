@@ -14,7 +14,7 @@ classdef PolypDetector < handle
         svm_classifier
         
         %% Pipeline parameters
-        % Non-maxima overlap threshold for ACF detection step
+        % Non-maxima suppresion overlap threshold for ACF detection step
         acf_nms_overlap = 0.5
         
         % Additional scaling applied to the ACF detections.
@@ -27,14 +27,17 @@ classdef PolypDetector < handle
         % between the values are discarded from SVM training (applicable
         % only if traning_positive_overlap and training_negative_overlap
         % have different values)
-        training_positive_overlap = 0.3
-        training_negative_overlap = 0.01
+        training_positive_overlap = 0.5
+        training_negative_overlap = 0.1
         
         % Function handle for creating new SVM classifier
         svm_create_function = @() classifier.LIBLINEAR()
         
+        % Non-maxima suppression overlap threshold for confirmed detections
+        svm_nms_overlap = 0.1
+        
         % Evaluation overlap
-        evaluation_overlap = 0.3
+        evaluation_overlap = 0.1
     end
     
     properties (Access = private)
@@ -75,8 +78,8 @@ classdef PolypDetector < handle
     % Processing pipeline steps (generally not meant to be used outside
     % this class)
     methods
-        function [ I, basename, poly, boxes ] = load_data (self, image_filename)
-            % [ I, basename, poly, annotations ] = LOAD_DATA (self, image_filename)
+        function [ I, basename, poly, boxes, manual_annotations ] = load_data (self, image_filename)
+            % [ I, basename, poly, boxes, manual_annotations ] = LOAD_DATA (self, image_filename)
             %
             % Loads an image and its accompanying polygon and bounding box
             % annotations, if available.
@@ -108,13 +111,33 @@ classdef PolypDetector < handle
                 end
             end
             
-            % Load annotations
+            % Load annotations (boxes)
             if nargout > 3,
                 boxes_file = fullfile(pathname, [ basename, '.bbox' ]);
                 if exist(boxes_file, 'file'),
                     boxes = load(boxes_file);
                 else
                     boxes = [];
+                end
+            end
+            
+            % Load manual annotations (points)
+            if nargout > 4,
+                annotation_files = dir( fullfile(pathname, [ basename, '.manual-*.txt' ]) );
+                
+                manual_annotations = cell(numel(annotation_files), 2);
+                
+                for f = 1:numel(annotation_files),
+                    % Annotation file
+                    annotation_file = fullfile(pathname, annotation_files(f).name);
+                    
+                    % Get basename and deduce annotation ID
+                    [ ~, annotation_basename ] = fileparts(annotation_file);
+                    pattern = '.manual-';
+                    idx = strfind(annotation_basename, pattern) + numel(pattern);
+                    
+                    manual_annotations{f, 1} = annotation_basename(idx:end); % Annotation ID
+                    manual_annotations{f, 2} = load(annotation_file); % Point list
                 end
             end
         end
@@ -441,6 +464,23 @@ classdef PolypDetector < handle
     
     
     methods
+        function load_classifier (self, filename)
+            % LOAD_CLASSIFIER (self, filename)
+            %
+            % Loads classifier from file
+            
+            if ~exist('filename', 'var') || isempty(filename),
+                [ filename, pathname ] = uigetfile('*.mat', 'Pick a classifier file');
+                if isequal(filename, 0),
+                    return;
+                end
+                filename = fullfile(pathname, filename);
+            end
+            
+            tmp = load(filename);
+            self.svm_classifier = tmp.classifier;
+        end
+        
         function detections = process_image (self, image_filename, varargin)
             % detections = PROCESS_IMAGE (self, image_filename, varargin)
             %
@@ -454,29 +494,33 @@ classdef PolypDetector < handle
             %    - regions_only: boolean indicating whether to detect only
             %      region proposals (first stage) or final detections (full
             %      pipeline). Default: false
-            %    - visualize_regions: whether to visualize detected regions
+            %    - display_regions: whether to visualize detected regions
             %      or not (default: false)
-            %    - visualize_detections: whether to visualize obtained
+            %    - display_detections: whether to visualize obtained
             %      detections (default: false)
+            %    - display_detections_as_points: whether to visualize 
+            %      obtained detections as points (default: false)
             %    - overlap_threshold: overlap threshold used when declaring
             %      a region as positive or negative in visualization
             %      (default: use evaluation_overlap setting)
             parser = inputParser();
             parser.addParameter('cache_dir', '', @ischar);
             parser.addParameter('regions_only', false, @islogical);
-            parser.addParameter('visualize_regions', false, @islogical);
-            parser.addParameter('visualize_detections', false, @islogical);
+            parser.addParameter('display_regions', false, @islogical);
+            parser.addParameter('display_detections', false, @islogical);
+            parser.addParameter('display_detections_as_points', false, @islogical);
             parser.addParameter('overlap_threshold', self.evaluation_overlap, @isnumeric);
             parser.parse(varargin{:});
             
             cache_dir = parser.Results.cache_dir;
             regions_only = parser.Results.regions_only;
-            visualize_regions = parser.Results.visualize_regions;
-            visualize_detections = parser.Results.visualize_detections;
+            display_regions = parser.Results.display_regions;
+            display_detections = parser.Results.display_detections;
+            display_detections_as_points = parser.Results.display_detections_as_points;
             overlap_threshold = parser.Results.overlap_threshold;
             
             %% Load and prepare the image
-            [ I, basename, poly, annotations ] = self.load_data(image_filename);
+            [ I, basename, poly, annotations, annotations_pts ] = self.load_data(image_filename);
             
             % Mask the image
             Im = mask_image_with_polygon(I, poly);
@@ -493,7 +537,7 @@ classdef PolypDetector < handle
             regions = self.detect_candidate_regions(Im, acf_cache_file);
             
             % Display ACF regions
-            if visualize_regions,
+            if display_regions,
                 visualize_detections_or_regions(I, poly, annotations, regions, 'multiple_matches', true, 'overlap_threshold', overlap_threshold, 'prefix', sprintf('%s: ACF', basename));
             end
             
@@ -529,13 +573,18 @@ classdef PolypDetector < handle
             fprintf('Performing NMS on top of SVM predictions...\n');
             
             detections = bbNms([ positive_regions, positive_scores' ], ...
-                'type', 'none', ...
-                'overlap', 0.50, ...
+                'type', 'maxg', ...
+                'overlap', self.svm_nms_overlap, ...
                 'ovrDnm', 'union');
                         
             % Display detections
-            if visualize_detections,
+            if display_detections,
                 visualize_detections_or_regions(I, poly, annotations, detections, 'multiple_matches', false, 'overlap_threshold', overlap_threshold, 'prefix', sprintf('%s: Final', basename));
+            end
+            
+            % Display detection points
+            if display_detections_as_points,
+                visualize_detections_as_points(I, poly, annotations_pts, detections, 'prefix', sprintf('%s: Final points', basename));
             end
         end
         
@@ -925,11 +974,83 @@ function fig = visualize_detections_or_regions (I, polygon, annotations, detecti
     num_annotated = sum(gt(:,5) ~= -1);
     num_detected = sum(det(:,6) ~= -1);
 
+    % Set title
     if ~isempty(prefix),
         prefix = sprintf('%s: ', prefix);
     end
     title = sprintf('%srecall: %.2f%%, precision: %.2f%%; counted: %d, annotated: %d ', prefix, recall, precision, num_detected, num_annotated);
 
     set(fig, 'Name', title);
+    
+    % Display as text as well
+    h = text(0, 0, title, 'Color', 'white', 'FontSize', 20);
+    h.Position(1) = size(I, 2)/2 - h.Extent(3)/2;
+    h.Position(2) = h.Extent(4);
+        
+    % Draw
+    drawnow();
+end
+
+function fig = visualize_detections_as_points (I, polygon, annotations, detections, varargin)
+    % fig = VISUALIZE_RESULTS (I, polygon, annotations, detections, varargin)
+
+    parser = inputParser();
+    parser.addParameter('fig', [], @ishandle);
+    parser.addParameter('prefix', '', @ischar);
+    parser.parse(varargin{:});
+
+    fig = parser.Results.fig;
+    prefix = parser.Results.prefix;
+
+    % Create mask
+    mask = poly2mask(polygon(:,1), polygon(:,2), size(I, 1), size(I,2));
+
+    if isempty(fig),
+        fig = figure();
+    else
+        set(groot, 'CurrentFigure', fig);
+    end
+    clf(fig);
+
+    % Show image
+    Im = uint8( bsxfun(@times, double(I), 0.50*mask + 0.50) );
+
+    imshow(Im);
+    hold on;
+    
+    % Draw manual annotations
+    h = [];
+    legend_entries = {};
+
+    if ~isempty(annotations),
+        num_annotations = size(annotations, 1);
+        colors = lines(num_annotations);
+        for i = 1:num_annotations,
+            annotation_id = annotations{i, 1};
+            annotation_points = annotations{i, 2};
+            
+            h(end+1) = plot(annotation_points(:,1), annotation_points(:,2), 'ko', 'MarkerFaceColor', colors(i,:));
+            legend_entries{end+1} = sprintf('%s (%d)', annotation_id, size(annotation_points, 1));
+        end
+    end
+
+    % Draw detections
+    detection_points = detections(:,1:2) + detections(:,3:4)/2;
+    h(end+1) = plot(detection_points(:,1), detection_points(:,2), 'gx', 'MarkerSize', 8, 'LineWidth', 2);
+    legend_entries{end+1} = sprintf('Detector (%d)', size(detections, 1));
+    
+    % Legend
+    legend(h, legend_entries, 'Location', 'NorthEast', 'Interpreter', 'none');
+    
+    % Set title    
+    title = prefix;
+    set(fig, 'Name', title);
+    
+    % Display as text as well
+    h = text(0, 0, title, 'Color', 'white', 'FontSize', 20);
+    h.Position(1) = size(I, 2)/2 - h.Extent(3)/2;
+    h.Position(2) = h.Extent(4);
+    
+    % Draw
     drawnow();
 end
