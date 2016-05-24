@@ -246,14 +246,20 @@ classdef PolypDetector < handle
     end
 
     methods
-        function train_and_evaluate (self, result_dir)
+        function train_and_evaluate (self, result_dir, varargin)
             % TRAIN_AND_EVALUATE (self, result_dir)
+            parser = inputParser();
+            parser.addParameter('train_images', self.default_train_images, @iscell);
+            parser.addParameter('test_images', self.default_test_images, @iscell);
+            parser.addParameter('display_svm_samples', false, @islogical);
+            parser.parse(varargin{:});
+            
+            train_images = parser.Results.train_images;
+            test_images = parser.Results.test_images;
+            display_svm_samples = parser.Results.display_svm_samples;
             
             % Cache 
             cache_dir = fullfile(result_dir, 'cache');
-            
-            train_images = self.default_train_images;
-            test_images = self.default_test_images;
             
             % Store old classifier
             old_classifier = self.svm_classifier;
@@ -267,7 +273,7 @@ classdef PolypDetector < handle
             else
                 % Train
                 t = tic();
-                self.train_svm_classifier('train_images', train_images, 'cache_dir', cache_dir);
+                self.train_svm_classifier('train_images', train_images, 'cache_dir', cache_dir, 'display_svm_samples', display_svm_samples);
                 time = toc(t);
                     
                 % Save
@@ -347,12 +353,12 @@ classdef PolypDetector < handle
             
             % Display results
             fprintf('\n\n');
-            fprintf('IMAGE_NAME\tPREC\tREC\tRELATIVE\n');
+            fprintf('IMAGE_NAME\tREC\tPREC\tRELATIVE\n');
             for i = 1:numel(all_results),
-                fprintf('%s\t%3.2f\t%3.2f\t%3.2f\n', all_results(i).image_name, all_results(i).precision, all_results(i).recall, 100*all_results(i).num_detected/all_results(i).num_annotated);
+                fprintf('%s\t%3.2f\t%3.2f\t%3.2f\n', all_results(i).image_name, all_results(i).recall, all_results(i).precision, 100*all_results(i).num_detected/all_results(i).num_annotated);
             end
             fprintf('\n');
-            fprintf('%s\t%3.2f\t%3.2f\t%3.2f\n', 'AVERAGE', mean([all_results.precision]), mean([all_results.recall]), 100*mean([all_results.num_detected]./[all_results.num_annotated]));
+            fprintf('%s\t%3.2f\t%3.2f\t%3.2f\n', 'AVERAGE', mean([all_results.recall]), mean([all_results.precision]), 100*mean([all_results.num_detected]./[all_results.num_annotated]));
             fprintf('\n');
             
             % Restore old classifier
@@ -464,6 +470,22 @@ classdef PolypDetector < handle
     
     
     methods
+        function load_acf_detector (self, filename)
+            % LOAD_ACF_DETECTOR (self, filename)
+            %
+            % Loads an ACF detector from file
+            
+            if ~exist('filename', 'var') || isempty(filename),
+                [ filename, pathname ] = uigetfile('*.mat', 'Pick an ACF detector file');
+                if isequal(filename, 0),
+                    return;
+                end
+                filename = fullfile(pathname, filename);
+            end
+            
+            self.acf_detector = AcfDetector(filename);
+        end
+            
         function load_classifier (self, filename)
             % LOAD_CLASSIFIER (self, filename)
             %
@@ -523,7 +545,9 @@ classdef PolypDetector < handle
             [ I, basename, poly, annotations, annotations_pts ] = self.load_data(image_filename);
             
             % Mask the image
-            Im = mask_image_with_polygon(I, poly);
+            mask = poly2mask(poly(:,1), poly(:,2), size(I,1), size(I,2));
+            mask = imgaussfilt(double(mask), 2);
+            Im = uint8( bsxfun(@times, double(I), mask) );
             
             %% *** 1st stage: region proposal ***
             %% Run ACF detector
@@ -592,12 +616,12 @@ classdef PolypDetector < handle
             parser = inputParser();
             parser.addParameter('cache_dir', '', @ischar);
             parser.addParameter('train_images', self.default_train_images, @iscell);
-            parser.addParameter('draw_svm_samples', false, @islogical);
+            parser.addParameter('display_svm_samples', false, @islogical);
             parser.parse(varargin{:});
             
             cache_dir = parser.Results.cache_dir;
             train_images = parser.Results.train_images;
-            draw_svm_samples = parser.Results.draw_svm_samples;
+            display_svm_samples = parser.Results.display_svm_samples;
             
             %% Process all train images to get the features and boxes
             num_images = numel(train_images);
@@ -644,7 +668,7 @@ classdef PolypDetector < handle
                 all_labels{i} = 2*labels - 1;
                 
                 %% Visualize negative samples
-                if draw_svm_samples,
+                if display_svm_samples,
                     fig = figure('Name', sprintf('SVM training samples: %s', basename));
                     clf(fig);
 
@@ -983,7 +1007,7 @@ function fig = visualize_detections_or_regions (I, polygon, annotations, detecti
     set(fig, 'Name', title);
     
     % Display as text as well
-    h = text(0, 0, title, 'Color', 'white', 'FontSize', 20);
+    h = text(0, 0, title, 'Color', 'white', 'FontSize', 20, 'Interpreter', 'none');
     h.Position(1) = size(I, 2)/2 - h.Extent(3)/2;
     h.Position(2) = h.Extent(4);
         
@@ -1047,7 +1071,7 @@ function fig = visualize_detections_as_points (I, polygon, annotations, detectio
     set(fig, 'Name', title);
     
     % Display as text as well
-    h = text(0, 0, title, 'Color', 'white', 'FontSize', 20);
+    h = text(0, 0, title, 'Color', 'white', 'FontSize', 20, 'Interpreter', 'none');
     h.Position(1) = size(I, 2)/2 - h.Extent(3)/2;
     h.Position(2) = h.Extent(4);
     

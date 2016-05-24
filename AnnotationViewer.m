@@ -236,6 +236,21 @@ classdef AnnotationViewer < handle
             end
         end
         
+        function filter_annotations (self)
+            % FILTER_ANNOTATIONS (self) 
+            
+            % Filter out boxes with invalid dimensions
+            area = self.boxes(:,3) .* self.boxes(:,4);
+            invalid_mask = area == 0;
+            fprintf('Removing boxes with invalid dimensions (%d)\n', sum(invalid_mask));
+            self.boxes(invalid_mask, :) = [];
+            
+            % Filter out exact duplicates
+            unique_boxes = unique(self.boxes, 'rows', 'stable');
+            fprintf('Filtered out diplicates: %d -> %d\n', size(self.boxes, 1), size(unique_boxes, 1));
+            self.boxes = unique_boxes;
+        end
+        
         function window_key_press (self, event)
             switch event.Key,
                 case 'l',
@@ -295,6 +310,10 @@ classdef AnnotationViewer < handle
                     fid = fopen(filename, 'w');
                     fprintf(fid, '%g %g\n', self.polygon');
                     fclose(fid);
+                case 'f',
+                    % Filter annotations
+                    self.filter_annotations();
+                    self.display_data();
             end
         end
         

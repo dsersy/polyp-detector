@@ -43,6 +43,32 @@ classdef AcfDetector < handle
             self.detector.opts.pNms.type = 'none';
         end
         
+        function set_upscale_image (self, factor)
+            % SET_UPSCALE_IMAGE (self, factor)
+            %
+            % Sets the nOctUp parameter of detector.pyramid
+            %
+            % Input:
+            %  - self: @AcfDetector instance
+            %  - factor: new nOctUp value
+            
+            self.detector = acfModify(self.detector, 'nOctUp', factor);
+        end
+        
+        function factor = get_upscale_image (self)
+            % factor = GET_UPSCALE_IMAGE (self, factor)
+            %
+            % Retrieves the values of nOctUp parameter of detector.pyramid
+            %
+            % Input:
+            %  - self: @AcfDetector instance
+            %
+            % Output:
+            %  - factor: nOctUp value
+        
+            factor = self.detector.opts.pPyramid.nOctUp;
+        end
+            
         function [ boxes, all_boxes, time_det, time_nms ] = detect (self, I, varargin)
             % [ boxes, all_boxes, time_det, time_nms ] = DETECT (self, I, varargin)
             %
