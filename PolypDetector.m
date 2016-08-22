@@ -549,6 +549,13 @@ classdef PolypDetector < handle
             mask = imgaussfilt(double(mask), 2);
             Im = uint8( bsxfun(@times, double(I), mask) );
             
+            % Crop the image
+            xmin = min(poly(:,1));
+            xmax = max(poly(:,1));
+            ymin = min(poly(:,2));
+            ymax = max(poly(:,2));
+            Im = Im(ymin:ymax, xmin:xmax, :);
+                        
             %% *** 1st stage: region proposal ***
             %% Run ACF detector
             if ~isempty(cache_dir),
@@ -559,6 +566,10 @@ classdef PolypDetector < handle
             
             % Detect
             regions = self.detect_candidate_regions(Im, acf_cache_file);
+            
+            % Undo the effect of the crop
+            regions(:,1) = regions(:,1) + xmin;
+            regions(:,2) = regions(:,2) + ymin;
             
             % Display ACF regions
             if display_regions,
@@ -953,9 +964,12 @@ function fig = visualize_detections_or_regions (I, polygon, annotations, detecti
     % Create mask
     mask = poly2mask(polygon(:,1), polygon(:,2), size(I, 1), size(I,2));
 
-    % Evaluate detections
-    [ gt, det ] = evaluate_detections(detections, annotations, 'threshold', overlap_threshold, 'multiple', multiple_matches, 'validity_mask', mask);
-
+    % Evaluate detections (if annotations are available)
+    if ~isempty(annotations),
+        [ gt, det ] = evaluate_detections(detections, annotations, 'threshold', overlap_threshold, 'multiple', multiple_matches, 'validity_mask', mask);
+    end
+    
+    % Figure
     if isempty(fig),
         fig = figure();
     else
@@ -968,42 +982,47 @@ function fig = visualize_detections_or_regions (I, polygon, annotations, detecti
     imshow(Im);
     hold on;
 
-    % Draw ground-truth; TN and FN
-    draw_boxes(gt(gt(:,5) == 1,:), fig, 'color', 'cyan', 'line_style', '-'); % TP
-    draw_boxes(gt(gt(:,5) == 0,:), fig, 'color', 'yellow', 'line_style', '-'); % FN
-    draw_boxes(gt(gt(:,5) == -1,:), fig, 'color', 'magenta', 'line_style', '-'); % ignore
+    if ~isempty(annotations),
+        % Draw ground-truth; TN and FN
+        draw_boxes(gt(gt(:,5) == 1,:), fig, 'color', 'cyan', 'line_style', '-'); % TP
+        draw_boxes(gt(gt(:,5) == 0,:), fig, 'color', 'yellow', 'line_style', '-'); % FN
+        draw_boxes(gt(gt(:,5) == -1,:), fig, 'color', 'magenta', 'line_style', '-'); % ignore
 
-    % Draw detections; TP and FP
-    draw_boxes(det(det(:,6) == 1,:), fig, 'color', 'green', 'line_style', '-'); % TP
-    draw_boxes(det(det(:,6) == 0,:), fig, 'color', 'red', 'line_style', '-'); % FP
+        % Draw detections; TP and FP
+        draw_boxes(det(det(:,6) == 1,:), fig, 'color', 'green', 'line_style', '-'); % TP
+        draw_boxes(det(det(:,6) == 0,:), fig, 'color', 'red', 'line_style', '-'); % FP
 
-    % Create fake plots for legend entries
-    h = [];
-    h(end+1) = plot([0,0], [0,0], '-', 'Color', 'cyan', 'LineWidth', 2);
-    h(end+1) = plot([0,0], [0,0], '-', 'Color', 'yellow', 'LineWidth', 2);
-    h(end+1) = plot([0,0], [0,0], '-', 'Color', 'green', 'LineWidth', 2);
-    h(end+1) = plot([0,0], [0,0], '-', 'Color', 'red', 'LineWidth', 2);
-    h(end+1) = plot([0,0], [0,0], '-', 'Color', 'magenta', 'LineWidth', 2);
-    legend(h, 'TP (annotated)', 'FN', 'TP (det)', 'FP', 'ignore');
+        % Create fake plots for legend entries
+        h = [];
+        h(end+1) = plot([0,0], [0,0], '-', 'Color', 'cyan', 'LineWidth', 2);
+        h(end+1) = plot([0,0], [0,0], '-', 'Color', 'yellow', 'LineWidth', 2);
+        h(end+1) = plot([0,0], [0,0], '-', 'Color', 'green', 'LineWidth', 2);
+        h(end+1) = plot([0,0], [0,0], '-', 'Color', 'red', 'LineWidth', 2);
+        h(end+1) = plot([0,0], [0,0], '-', 'Color', 'magenta', 'LineWidth', 2);
+        legend(h, 'TP (annotated)', 'FN', 'TP (det)', 'FP', 'ignore');
 
-    % Count
-    tp = sum( gt(:,5) == 1 );
-    fn = sum( gt(:,5) == 0 );
-    %tp = sum( det(:,6) == 1 );
-    fp = sum( det(:,6) == 0 );
+        % Count
+        tp = sum( gt(:,5) == 1 );
+        fn = sum( gt(:,5) == 0 );
+        %tp = sum( det(:,6) == 1 );
+        fp = sum( det(:,6) == 0 );
 
-    precision = 100*tp/(tp+fp);
-    recall = 100*tp/(tp+fn);
+        precision = 100*tp/(tp+fp);
+        recall = 100*tp/(tp+fn);
 
-    num_annotated = sum(gt(:,5) ~= -1);
-    num_detected = sum(det(:,6) ~= -1);
+        num_annotated = sum(gt(:,5) ~= -1);
+        num_detected = sum(det(:,6) ~= -1);
 
-    % Set title
-    if ~isempty(prefix),
-        prefix = sprintf('%s: ', prefix);
+        % Set title
+        if ~isempty(prefix),
+            prefix = sprintf('%s: ', prefix);
+        end
+        title = sprintf('%srecall: %.2f%%, precision: %.2f%%; counted: %d, annotated: %d ', prefix, recall, precision, num_detected, num_annotated);
+    else
+        draw_boxes(detections, fig, 'color', 'green', 'line_style', '-'); % TP
+        title = sprintf('%s: num detected: %d', prefix, size(detections, 1));
     end
-    title = sprintf('%srecall: %.2f%%, precision: %.2f%%; counted: %d, annotated: %d ', prefix, recall, precision, num_detected, num_annotated);
-
+    
     set(fig, 'Name', title);
     
     % Display as text as well
