@@ -947,7 +947,9 @@ function [ gt, dt ] = evaluate_detections (detections, annotations, varargin)
 end
 
 function fig = visualize_detections_or_regions (I, polygon, annotations, detections, varargin)
-    % fig = VISUALIZE_RESULTS (I, polygon, annotations, detections, varargin)
+    % fig = VISUALIZE_DETECTIONS_OR_REGIONS (I, polygon, annotations, detections, varargin)
+    %
+    % Visualizes detection/region-proposal bounding boxes.
 
     parser = inputParser();
     parser.addParameter('fig', [], @ishandle);
@@ -1035,7 +1037,9 @@ function fig = visualize_detections_or_regions (I, polygon, annotations, detecti
 end
 
 function fig = visualize_detections_as_points (I, polygon, annotations, detections, varargin)
-    % fig = VISUALIZE_RESULTS (I, polygon, annotations, detections, varargin)
+    % fig = VISUALIZE_DETECTIONS_AS_POINTS (I, polygon, annotations, detections, varargin)
+    %
+    % Visualizes detections' centroids.
 
     parser = inputParser();
     parser.addParameter('fig', [], @ishandle);
