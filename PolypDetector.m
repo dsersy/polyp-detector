@@ -33,6 +33,9 @@ classdef PolypDetector < handle
         % Function handle for creating new SVM classifier
         svm_factory = @() vicos.svm.LibLinear()
         
+        % L2-normalize feature vectors
+        l2_normalized_features = true
+        
         % Non-maxima suppression overlap threshold for confirmed detections
         svm_nms_overlap = 0.1
         
@@ -244,6 +247,11 @@ classdef PolypDetector < handle
                     
                     save(cache_file, '-struct', 'tmp');
                 end
+            end
+            
+            %% Feature normalization
+            if self.l2_normalized_features,
+                features = bsxfun(@rdivide, features, sqrt(sum(features .^ 2)));
             end
         end
     end
