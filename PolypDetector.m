@@ -181,11 +181,12 @@ classdef PolypDetector < handle
                 if ~isempty(cache_file),
                     ensure_path_exists(cache_file);
                     
-                    tmp.nms_overlap = self.acf_nms_overlap;
-                    tmp.regions = regions;
-                    tmp.regions_all = regions_all;
-                    tmp.time_det = time_det;
-                    tmp.time_nms = time_nms;
+                    tmp = struct(...
+                        'nms_overlap', self.acf_nms_overlap, ...
+                        'regions', regions, ...
+                        'regions_all', regions_all, ...
+                        'time_det', time_det, ...
+                        'time_nms', time_nms); %#ok<NASGU>
                     
                     save(cache_file, '-struct', 'tmp');
                 end
@@ -237,8 +238,10 @@ classdef PolypDetector < handle
                 if ~isempty(cache_file),
                     ensure_path_exists(cache_file);
                     
-                    tmp.features = features;
-                    tmp.time = time;
+                    tmp = struct(...
+                        'features', features, ...
+                        'time', time); %#ok<NASGU>
+                    
                     save(cache_file, '-struct', 'tmp');
                 end
             end
@@ -525,6 +528,11 @@ classdef PolypDetector < handle
             %    - overlap_threshold: overlap threshold used when declaring
             %      a region as positive or negative in visualization
             %      (default: use evaluation_overlap setting)
+            %
+            % Output:
+            %  - detections
+            
+            % Input arguments
             parser = inputParser();
             parser.addParameter('cache_dir', '', @ischar);
             parser.addParameter('regions_only', false, @islogical);
@@ -624,6 +632,23 @@ classdef PolypDetector < handle
         end
         
         function svm = train_svm_classifier (self, varargin)
+            % svm = TRAIN_SVM_CLASSIFIER (self, varargin)
+            %
+            % Trains an SVM classifier.
+            %
+            % Input:
+            %  - self:
+            %  - varagin: optional key/value pairs:
+            %     - cache_dir: cache directory (default: '')
+            %     - train_images: cell array of train image file names
+            %       (default: use built-in list)
+            %     - display_svm_samples: visualize SVM training samples on
+            %       each training image
+            %
+            % Output:
+            %  - svm: trained SVM classifier
+            
+            % Input arguments
             parser = inputParser();
             parser.addParameter('cache_dir', '', @ischar);
             parser.addParameter('train_images', self.default_train_images, @iscell);
@@ -678,7 +703,7 @@ classdef PolypDetector < handle
                 all_features{i} = features;
                 all_labels{i} = 2*labels - 1;
                 
-                %% Visualize negative samples
+                %% Visualize training samples
                 if display_svm_samples,
                     fig = figure('Name', sprintf('SVM training samples: %s', basename));
                     clf(fig);
@@ -703,7 +728,7 @@ classdef PolypDetector < handle
             end
             
             %% Train the SVM
-            % Gather 
+            % Gather
             all_features = horzcat( all_features{:} );
             all_labels = vertcat( all_labels{:} );
             
