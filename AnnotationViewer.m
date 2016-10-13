@@ -25,20 +25,23 @@ classdef AnnotationViewer < handle
     
     methods
         function self = AnnotationViewer ()
-            self.figure_main = figure();
+            self.figure_main = figure('Interruptible', 'off', 'BusyAction', 'cancel');
             set(self.figure_main, 'WindowKeyPressFcn', @(fig_obj, event_data) window_key_press(self, event_data));
             set(self.figure_main, 'WindowButtonDownFcn', @(fig_obj, event_data) window_mouse_button(self, event_data));
 
         end
         
-        function load_image (self)
-            % Select file
-            [ filename, pathname ] = uigetfile('*.jpg;*.png;*.bmp;*.jpeg;*.tif', 'Pick am image file', self.image_file);
-            if isequal(filename, 0),
-                return;
+        function load_image (self, filename)
+            if ~exist('filename', 'var') || isempty(filename),
+                % Select file
+                [ filename, pathname ] = uigetfile('*.jpg;*.png;*.bmp;*.jpeg;*.tif', 'Pick am image file', self.image_file);
+                if isequal(filename, 0),
+                    return;
+                end
+                filename = fullfile(pathname, filename);
             end
             
-            self.image_file = fullfile(pathname, filename);
+            self.image_file = filename;
             [ pathname, basename, ~ ] = fileparts(self.image_file);
 
             % Load image
@@ -66,6 +69,28 @@ classdef AnnotationViewer < handle
                         
             % Refresh data
             self.display_data();
+        end
+        
+        function load_next_image (self, direction)
+            % Decompose image file to get path and extension
+            [ path, basename, ext ] = fileparts(self.image_file);
+            
+            % List all images of same type in the path
+            files = dir(fullfile(path, [ '*', ext ]));
+            files = { files.name };
+            
+            % Find current image
+            idx = find(strcmp([ basename, ext ], files));
+            
+            % Select previous/next
+            new_idx = idx + direction;
+            
+            if new_idx < 1 || new_idx > numel(files),
+                return;
+            end
+            
+            % Load
+            self.load_image(fullfile(path, files{new_idx}));
         end
         
         function [ x1, y1, x2, y2 ] = get_boxes (self)
@@ -253,6 +278,10 @@ classdef AnnotationViewer < handle
         
         function window_key_press (self, event)
             switch event.Key,
+                case { 'a', 'leftarrow' },
+                    self.load_next_image(-1);
+                case { 's', 'rightarrow' },
+                    self.load_next_image(+1);
                 case 'l',
                     self.load_image();
                 case 'e',
@@ -283,7 +312,7 @@ classdef AnnotationViewer < handle
                 case { 'delete', 'subtract' },
                     % Delete box
                     self.delete_selected_box();
-                case { 'a', 'add' },
+                case { 'add' },
                     self.add_box();
                 case 'm',
                     self.show_masked = ~self.show_masked;
