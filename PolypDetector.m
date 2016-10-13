@@ -13,6 +13,12 @@ classdef PolypDetector < handle
         cnn_extractor
         svm_classifier
         
+        % Function handles for creating the above components (so that we
+        % actually create them on-demand)
+        acf_detector_factory
+        feature_extractor_factory
+        classifier_factory
+        
         %% Pipeline parameters
         % Non-maxima suppresion overlap threshold for ACF detection step
         acf_nms_overlap = 0.5
@@ -30,9 +36,6 @@ classdef PolypDetector < handle
         training_positive_overlap = 0.5
         training_negative_overlap = 0.1
         
-        % Function handle for creating new SVM classifier
-        svm_factory = @() vicos.svm.LibLinear()
-        
         % L2-normalize feature vectors
         l2_normalized_features = true
         
@@ -41,10 +44,6 @@ classdef PolypDetector < handle
         
         % Evaluation overlap
         evaluation_overlap = 0.1
-    end
-    
-    properties (Access = private)
-        cnn_arguments
     end
         
     %% Public API
@@ -55,103 +54,46 @@ classdef PolypDetector < handle
             % Creates a new instance of @PolypDetector.
             %
             % Input: key/value pairs
-            %  - acf_detector: ACF detector .mat filename
-            %  - cnn_arguments: cell array of key/value arguments to pass
-            %    to @CnnFeatureExtractor
+            %  - region_proposal_factory: handle to function that creates
+            %    an instance of region proposal generator. By default, a 
+            %    pre-trained ACF detector is used.
+            %  - feature_extractor_factory: handle to function that creates
+            %    an instance of feature extractor. By default, CNN feature
+            %    extractor using ImageNet FC7 features is used.
+            %  - classifier_factory: handle to function that creates a
+            %    classifier. By default, a LIBLINEAR binary SVM is used.
             %
             % Output:
-            %  - self: @PolypDetector instance
+            %  - self:
             
             % Input parser
             parser = inputParser();
-            parser.addParameter('acf_detector', 'detector/acf-polyp-default.mat', @ischar);
-            parser.addParameter('cnn_arguments', {}, @iscell);
+            parser.addParameter('acf_detector_factory', @() vicos.AcfDetector(fullfile(self.get_root_code_path(), 'detector', 'acf-polyp-default.mat')));
+            parser.addParameter('feature_extractor_factory', @() self.feature_extractor_imagenet_fc7());
+            parser.addParameter('classifier_factory', @() vicos.svm.LibLinear());
             parser.parse(varargin{:});
             
-            % Create ACF detector wrapper
-            acf_detector_file = parser.Results.acf_detector;
-            self.acf_detector = vicos.AcfDetector(acf_detector_file);
+            self.acf_detector_factory = parser.Results.acf_detector_factory;
+            assert(isa(self.acf_detector_factory, 'function_handle') || isempty(self.acf_detector_factory), 'acf_detector_factory must be a function handle!');
             
-            % Create CNN feature extractor
-            self.cnn_arguments = parser.Results.cnn_arguments;
-            self.cnn_extractor = CnnFeatureExtractor(self.cnn_arguments{:});
+            self.feature_extractor_factory = parser.Results.feature_extractor_factory;
+            assert(isa(self.feature_extractor_factory, 'function_handle') || isempty(self.feature_extractor_factory), 'feature_extractor_factory must be a function handle!');
+            
+            self.classifier_factory = parser.Results.classifier_factory;
+            assert(isa(self.classifier_factory, 'function_handle') || isempty(self.classifier_factory), 'classifier_factory must be a function handle!');
         end
     end
         
     % Processing pipeline steps (generally not meant to be used outside
     % this class)
     methods
-        function [ I, basename, poly, boxes, manual_annotations ] = load_data (self, image_filename)
-            % [ I, basename, poly, boxes, manual_annotations ] = LOAD_DATA (self, image_filename)
-            %
-            % Loads an image and its accompanying polygon and bounding box
-            % annotations, if available.
-            %
-            % Input:
-            %  - self: @PolypDetector instance
-            %  - image_filename: input image filename
-            %
-            % Output:
-            %  - I: loaded image
-            %  - basename: image's basename, which can be passed to
-            %    subsequent processing functions for data caching
-            %  - poly: polygon that describes ROI
-            %  - boxes: manually-annotated bounding boxes
-            
-            % Get path and basename
-            [ pathname, basename, ~ ] = fileparts(image_filename);
-            
-            % Load image
-            I = imread(image_filename);
-            
-            % Load polygon
-            if nargout > 2,
-                poly_file = fullfile(pathname, [ basename, '.poly' ]);
-                if exist(poly_file, 'file'),
-                    poly = load(poly_file);
-                else
-                    poly = [];
-                end
-            end
-            
-            % Load annotations (boxes)
-            if nargout > 3,
-                boxes_file = fullfile(pathname, [ basename, '.bbox' ]);
-                if exist(boxes_file, 'file'),
-                    boxes = load(boxes_file);
-                else
-                    boxes = [];
-                end
-            end
-            
-            % Load manual annotations (points)
-            if nargout > 4,
-                annotation_files = dir( fullfile(pathname, [ basename, '.manual-*.txt' ]) );
-                
-                manual_annotations = cell(numel(annotation_files), 2);
-                
-                for f = 1:numel(annotation_files),
-                    % Annotation file
-                    annotation_file = fullfile(pathname, annotation_files(f).name);
-                    
-                    % Get basename and deduce annotation ID
-                    [ ~, annotation_basename ] = fileparts(annotation_file);
-                    pattern = '.manual-';
-                    idx = strfind(annotation_basename, pattern) + numel(pattern);
-                    
-                    manual_annotations{f, 1} = annotation_basename(idx:end); % Annotation ID
-                    manual_annotations{f, 2} = load(annotation_file); % Point list
-                end
-            end
-        end
-        
         function [ regions, time_det, time_nms ] = detect_candidate_regions (self, I, cache_file)
             % [ regions, time_det, time_nms ] = DETECT_CANDIDATE_REGIONS (self, I, cache_file)
             %
             % Detects candidate regions in the given image.
             %
             % Input:
-            %  - self: @PolypDetector instance
+            %  - self:
             %  - I: image
             %  - cache_file: optional cache file to use (default: '')
             %
@@ -160,11 +102,14 @@ classdef PolypDetector < handle
             %  - time_det: time spent in region detection
             %  - time_nms: time spent in the first non-maxima suppression
             %    pass
+            %
+            % Note: creates ACF instance on demand
             
             if ~exist('cache_file', 'var'),
                 cache_file = '';
             end
             
+            %% Region detection / caching
             if ~isempty(cache_file) && exist(cache_file, 'file'),
                 % Load from cache
                 tmp = load(cache_file);
@@ -177,12 +122,17 @@ classdef PolypDetector < handle
                 time_det = tmp.time_det;
                 time_nms = tmp.time_nms;
             else
+                % Create ACF detector, if necessary
+                if isempty(self.acf_detector),
+                    self.acf_detector = self.acf_detector_factory();
+                end
+                
                 % Run ACF detector
                 [ regions, regions_all, time_det, time_nms ] = self.acf_detector.detect(I, 'nms_overlap', self.acf_nms_overlap);
                 
                 % Save to cache
                 if ~isempty(cache_file),
-                    ensure_path_exists(cache_file);
+                    vicos.utils.ensure_path_exists(cache_file);
                     
                     tmp = struct(...
                         'nms_overlap', self.acf_nms_overlap, ...
@@ -191,7 +141,7 @@ classdef PolypDetector < handle
                         'time_det', time_det, ...
                         'time_nms', time_nms); %#ok<NASGU>
                     
-                    save(cache_file, '-struct', 'tmp');
+                    save(cache_file, '-v7.3', '-struct', 'tmp');
                 end
             end
             
@@ -207,7 +157,7 @@ classdef PolypDetector < handle
             % Extract CNN features from given regions.
             %
             % Input:
-            %  - self: @PolypDetector instance
+            %  - self:
             %  - I: image
             %  - regions: Nx4 matrix describing regions
             %  - cache_file: optional cache file to use (default: '')
@@ -215,11 +165,14 @@ classdef PolypDetector < handle
             % Output:
             %  - features: DxN matrix of extracted features
             %  - time: time spent in feature extraction
+            %
+            % Note: creates CNN Feature Extractor instance on demand
             
             if ~exist('cache_file', 'var'),
                 cache_file = '';
             end
             
+            %% Feature extraction / caching
             if ~isempty(cache_file) && exist(cache_file, 'file'),
                 % Load from cache
                 tmp = load(cache_file);
@@ -234,18 +187,23 @@ classdef PolypDetector < handle
                 % Convert [ x, y, w, h ] to [ x1, y1, x2, y2 ], in 4xN format
                 boxes = [ regions(:,1), regions(:,2), regions(:,1)+regions(:,3)+1, regions(:,2)+regions(:,4)+1 ]';
             
+                % Create extractor, if necessary
+                if isempty(self.cnn_extractor),
+                    self.cnn_extractor = self.feature_extractor_factory();
+                end
+                
                 % Extract CNN features
                 [ features, time ] = self.cnn_extractor.extract(I, 'regions', boxes);
                 
                 % Save to cache
                 if ~isempty(cache_file),
-                    ensure_path_exists(cache_file);
+                    vicos.utils.ensure_path_exists(cache_file);
                     
                     tmp = struct(...
                         'features', features, ...
                         'time', time); %#ok<NASGU>
                     
-                    save(cache_file, '-struct', 'tmp');
+                    save(cache_file, '-v7.3', '-struct', 'tmp');
                 end
             end
             
@@ -258,7 +216,17 @@ classdef PolypDetector < handle
 
     methods
         function train_and_evaluate (self, result_dir, varargin)
-            % TRAIN_AND_EVALUATE (self, result_dir)
+            % TRAIN_AND_EVALUATE (self, result_dir, varargin)
+            %
+            % Input:
+            %  - self:
+            %  - result_dir:
+            %  - varargin: optional key/value pairs
+            %     - train_images: cell array of train image filenames
+            %     - test_images: cell array of test image filenames
+            %     - display_svm_samples: boolean indicating whether to
+            %       visualize SVM training samples or not
+            
             parser = inputParser();
             parser.addParameter('train_images', self.default_train_images, @iscell);
             parser.addParameter('test_images', self.default_test_images, @iscell);
@@ -272,9 +240,6 @@ classdef PolypDetector < handle
             % Cache 
             cache_dir = fullfile(result_dir, 'cache');
             
-            % Store old classifier
-            old_classifier = self.svm_classifier;
-            
             %% Train SVM
             classifier_file = fullfile(result_dir, 'classifier.mat');
             if exist(classifier_file, 'file'),
@@ -284,15 +249,17 @@ classdef PolypDetector < handle
             else
                 % Train
                 t = tic();
-                self.train_svm_classifier('train_images', train_images, 'cache_dir', cache_dir, 'display_svm_samples', display_svm_samples);
+                self.svm_classifier = self.train_svm_classifier('train_images', train_images, 'cache_dir', cache_dir, 'display_svm_samples', display_svm_samples);
                 time = toc(t);
                     
                 % Save
-                ensure_path_exists(classifier_file);
+                vicos.utils.ensure_path_exists(classifier_file);
                 
-                tmp.classifier = self.svm_classifier;
-                tmp.time = time;
-                save(classifier_file, '-struct', 'tmp');
+                tmp = struct(...
+                    'classifier', self.svm_classifier, ...
+                    'time', time); %#ok<NASGU>
+                
+                save(classifier_file, '-v7.3', '-struct', 'tmp');
             end
             
             %% Test SVM
@@ -304,7 +271,7 @@ classdef PolypDetector < handle
                                   'precision', 0, ...
                                   'recall', 0, ...
                                   'num_annotated', 0, ...
-                                  'num_detected', 0), 1, 0);
+                                  'num_detected', 0), 1, numel(test_images));
                               
             for i = 1:numel(test_images),
                 test_image = test_images{i};
@@ -317,8 +284,7 @@ classdef PolypDetector < handle
                 % Try loading result from cache
                 results_file = fullfile(result_dir, [ basename, '.mat' ]);
                 if exist(results_file, 'file'),
-                    results = load(results_file);
-                    all_results = [ all_results, results ];
+                    all_results(i) = load(results_file);
                     continue;
                 end
                 
@@ -354,8 +320,8 @@ classdef PolypDetector < handle
                 results.num_annotated = num_annotated;
                 results.num_detected = num_detected;
                 
-                ensure_path_exists(results_file);
-                save(results_file, '-struct', 'results');
+                vicos.utils.ensure_path_exists(results_file);
+                save(results_file, '-v7.3', '-struct', 'results');
                 
                 all_results(i) = results;
             end
@@ -371,9 +337,6 @@ classdef PolypDetector < handle
             fprintf('\n');
             fprintf('%s\t%3.2f\t%3.2f\t%3.2f\n', 'AVERAGE', mean([all_results.recall]), mean([all_results.precision]), 100*mean([all_results.num_detected]./[all_results.num_annotated]));
             fprintf('\n');
-            
-            % Restore old classifier
-            self.svm_classifier = old_classifier;
         end
         
         function leave_one_out_cross_validation (self, result_dir)
@@ -384,10 +347,7 @@ classdef PolypDetector < handle
             
             % Create list of images
             images = union(self.default_train_images, self.default_test_images);
-            
-            % Store old classifier
-            old_classifier = self.svm_classifier;
-            
+                        
             %% Leave-one-out loop
             all_results = repmat(struct(...
                                   'image_name', '', ...
@@ -411,8 +371,7 @@ classdef PolypDetector < handle
                 % Try loading result from cache
                 results_file = fullfile(result_dir, [ basename, '.mat' ]);
                 if exist(results_file, 'file'),
-                    results = load(results_file);
-                    all_results(i) = results;
+                    all_results(i) = load(results_file);
                     continue;
                 end
                 
@@ -425,13 +384,17 @@ classdef PolypDetector < handle
                 else
                     % Train
                     t = tic();
-                    self.train_svm_classifier('train_images', train_images, 'cache_dir', cache_dir);
+                    self.svm_classifier = self.train_svm_classifier('train_images', train_images, 'cache_dir', cache_dir);
                     time = toc(t);
                     
                     % Save
-                    classifier = self.svm_classifier;
-                    ensure_path_exists(classifier_file);
-                    save(classifier_file, 'classifier', 'time');
+                    vicos.utils.ensure_path_exists(classifier_file);
+                    
+                    tmp = struct(...
+                        'classifier', self.svm_classifier, ...
+                        'time', time); %#ok<NASGU>
+                    
+                    save(classifier_file, '-v7.3', '-struct', 'tmp');
                 end
                 
                 %% Process the left-out image
@@ -466,16 +429,13 @@ classdef PolypDetector < handle
                 results.num_annotated = num_annotated;
                 results.num_detected = num_detected;
                 
-                ensure_path_exists(results_file);
-                save(results_file, '-struct', 'results');
+                vicos.utils.ensure_path_exists(results_file);
+                save(results_file, '-v7.3', '-struct', 'results');
                 
                 all_results(i) = results;
             end
             
-            save(fullfile(result_dir, 'all_results.mat'), 'all_results');
-            
-            % Restore old classifier
-            self.svm_classifier = old_classifier;
+            save(fullfile(result_dir, 'all_results.mat'), '-v7.3', 'all_results');
         end
     end
     
@@ -722,8 +682,8 @@ classdef PolypDetector < handle
                     hold on;
 
                     % Draw chosen regions
-                    draw_boxes(regions(labels == 1,:), fig, 'color', 'green', 'line_style', '-'); % Positive
-                    draw_boxes(regions(labels == 0,:), fig, 'color', 'red', 'line_style', '-'); % Negative
+                    vicos.utils.draw_boxes(regions(labels == 1,:), 'color', 'green', 'line_style', '-'); % Positive
+                    vicos.utils.draw_boxes(regions(labels == 0,:), 'color', 'red', 'line_style', '-'); % Negative
                     
                     % Create fake plots for legend entries
                     h = zeros(1,2);
@@ -743,7 +703,7 @@ classdef PolypDetector < handle
             fprintf('Training SVM with %d samples, %d positive (%.2f%%), %d negative (%.2f%%)\n', numel(all_labels), sum(all_labels==1), 100*sum(all_labels==1)/numel(all_labels), sum(all_labels==-1), 100*sum(all_labels==-1)/numel(all_labels));
             
             % Train
-            svm = self.svm_factory(); % Create SVM
+            svm = self.classifier_factory(); % Create SVM
             svm.train(all_features, all_labels);
             
             if nargout < 1,
@@ -752,75 +712,87 @@ classdef PolypDetector < handle
         end
     end
     
-    %% Presets
-    % These are the pre-defined detector pipelines, provided for
-    % convenience
     methods (Static)
-        function self = preset_mnist_fc1 ()
-            % self = PRESET_MNIST_FC1 ()
-            %
-            % Creates a polyp detector pipeline with default ACF detector
-            % and FC1 MNIST LeNet feature extractor.
-            
+        function root_dir = get_root_code_path ()
             root_dir = fileparts(mfilename('fullpath'));
-            
-            % ACF detector
-            acf_detector_name = fullfile(root_dir, 'detector', 'acf-polyp-default.mat');
-            
-            % Arguments for CNN feature extractor
-            cnn_dir = fullfile(root_dir, 'detector', 'cnn-mnist');
-            
-            cnn_arguments = { ...
-                fullfile(cnn_dir, 'lenet.prototxt'), ...
-                fullfile(cnn_dir, 'lenet_iter_10000.caffemodel'), ...
-                'layer_name', 'ip1', ...
-                'pixel_scale', 1/256, ...
-                'use_gpu', true ...
-            };
-
-            % Create
-            self = PolypDetector('acf_detector', acf_detector_name, 'cnn_arguments', cnn_arguments);
         end
         
-        function self = preset_mnist_proba ()
-            % self = PRESET_MNIST_PROBA ()
+        function [ I, basename, poly, boxes, manual_annotations ] = load_data (image_filename)
+            % [ I, basename, poly, boxes, manual_annotations ] = LOAD_DATA (self, image_filename)
             %
-            % Creates a polyp detector pipeline with default ACF detector
-            % and PROBA MNIST LeNet feature extractor.
+            % Loads an image and, if available, its accompanying polygon, 
+            % bounding box, and point-wise annotations.
+            %
+            % Input:
+            %  - image_filename: input image filename
+            %
+            % Output:
+            %  - I: loaded image
+            %  - basename: image's basename, which can be passed to
+            %    subsequent processing functions for data caching
+            %  - poly: polygon that describes ROI
+            %  - boxes: manually-annotated bounding boxes
+            %  - manual_annotations: a cell array of point-wise manual
+            %    annotations
             
-            root_dir = fileparts(mfilename('fullpath'));
+            % Get path and basename
+            [ pathname, basename, ~ ] = fileparts(image_filename);
             
-            % ACF detector
-            acf_detector_name = fullfile(root_dir, 'detector', 'acf-polyp-default.mat');
+            % Load image
+            I = imread(image_filename);
             
-            % Arguments for CNN feature extractor
-            cnn_dir = fullfile(root_dir, 'detector', 'cnn-mnist');
+            % Load polygon
+            if nargout > 2,
+                poly_file = fullfile(pathname, [ basename, '.poly' ]);
+                if exist(poly_file, 'file'),
+                    poly = load(poly_file);
+                else
+                    poly = [];
+                end
+            end
             
-            cnn_arguments = { ...
-                fullfile(cnn_dir, 'lenet.prototxt'), ...
-                fullfile(cnn_dir, 'lenet_iter_10000.caffemodel'), ...
-                'layer_name', 'prob', ...
-                'pixel_scale', 1/256, ...
-                'use_gpu', true ...
-            };
-
-            % Create
-            self = PolypDetector('acf_detector', acf_detector_name, 'cnn_arguments', cnn_arguments);
+            % Load annotations (boxes)
+            if nargout > 3,
+                boxes_file = fullfile(pathname, [ basename, '.bbox' ]);
+                if exist(boxes_file, 'file'),
+                    boxes = load(boxes_file);
+                else
+                    boxes = [];
+                end
+            end
+            
+            % Load manual annotations (points)
+            if nargout > 4,
+                annotation_files = dir( fullfile(pathname, [ basename, '.manual-*.txt' ]) );
+                
+                manual_annotations = cell(numel(annotation_files), 2);
+                
+                for f = 1:numel(annotation_files),
+                    % Annotation file
+                    annotation_file = fullfile(pathname, annotation_files(f).name);
+                    
+                    % Get basename and deduce annotation ID
+                    [ ~, annotation_basename ] = fileparts(annotation_file);
+                    pattern = '.manual-';
+                    idx = strfind(annotation_basename, pattern) + numel(pattern);
+                    
+                    manual_annotations{f, 1} = annotation_basename(idx:end); % Annotation ID
+                    manual_annotations{f, 2} = load(annotation_file); % Point list
+                end
+            end
         end
-        
-        function self = preset_imagenet_fc7 ()
-            % self = PRESET_IMAGENET_FC7 ()
+    end
+    
+    
+    %% Feature extractor presets
+    methods (Static)
+        function extractor = feature_extractor_imagenet_fc7 ()
+            % extractor = FEATURE_EXTRACTOR_IMAGENET_FC7 ()
             %
-            % Creates a polyp detector pipeline with default ACF detector
-            % and FC7 ImageNet feature extractor.
-            
-            root_dir = fileparts(mfilename('fullpath'));
-            
-            % ACF detector
-            acf_detector_name = fullfile(root_dir, 'detector', 'acf-polyp-default.mat');
+            % Creates a ImageNet FC7 CNN feature extractor.
             
             % Arguments for CNN feature extractor
-            cnn_dir = fullfile(root_dir, 'detector', 'cnn-rcnn');
+            cnn_dir = fullfile(PolypDetector.get_root_code_path(), 'detector', 'cnn-rcnn');
             
             cnn_arguments = { ...
                 fullfile(cnn_dir, 'rcnn_batch_256_output_fc7.prototxt'), ...
@@ -831,90 +803,56 @@ classdef PolypDetector < handle
                 'pixel_means', fullfile(cnn_dir, 'pixel_means.mat'), ...
                 'use_gpu', true ...
             };
-        
-            %% Create
-            self = PolypDetector('acf_detector', acf_detector_name, 'cnn_arguments', cnn_arguments);
-        end 
+            
+            % Create CNN feature extractor
+            extractor = CnnFeatureExtractor(cnn_arguments{:});
+        end
     end
     
     %% Default test and train images
     properties
         default_train_images = { ...
-            'data/07.03.jpg', ...
-            'data/13.01.jpg', ...
-            'data/13.03.jpg', ...
-            'data/13.04.jpg', ...
-            'data/13.05.jpg' };
+            'dataset-kristjan/07.03.jpg', ...
+            'dataset-kristjan/13.01.jpg', ...
+            'dataset-kristjan/13.03.jpg', ...
+            'dataset-kristjan/13.04.jpg', ...
+            'dataset-kristjan/13.05.jpg' };
         
         default_test_images = {
-            'data/01.01.jpg', ...
-            'data/01.02.jpg', ...
-            'data/01.03.jpg', ...
-            'data/01.04.jpg', ...
-            'data/01.05.jpg', ...
-            'data/02.01.jpg', ...
-            'data/02.02.jpg', ...
-            'data/02.03.jpg', ...
-            'data/02.04.jpg', ...
-            'data/02.05.jpg', ...
-            'data/03.01.jpg', ...
-            'data/03.02.jpg', ...
-            'data/03.03.jpg', ...
-            'data/03.04.jpg', ...
-            'data/03.05.jpg', ...
-            'data/04.01.jpg', ...
-            'data/04.02.jpg', ...
-            'data/04.03.jpg', ...
-            'data/04.04.jpg', ...
-            'data/04.05.jpg', ...
-            'data/05.01.jpg', ...
-            'data/05.02.jpg', ...
-            'data/05.03.jpg', ...
-            'data/06.01.jpg', ...
-            'data/06.02.jpg', ...
-            'data/06.03.jpg', ...
-            'data/07.01.jpg', ...
-            'data/07.02.jpg', ...
-            'data/08.01.jpg', ...
-            'data/08.03.jpg' };
+            'dataset-kristjan/01.01.jpg', ...
+            'dataset-kristjan/01.02.jpg', ...
+            'dataset-kristjan/01.03.jpg', ...
+            'dataset-kristjan/01.04.jpg', ...
+            'dataset-kristjan/01.05.jpg', ...
+            'dataset-kristjan/02.01.jpg', ...
+            'dataset-kristjan/02.02.jpg', ...
+            'dataset-kristjan/02.03.jpg', ...
+            'dataset-kristjan/02.04.jpg', ...
+            'dataset-kristjan/02.05.jpg', ...
+            'dataset-kristjan/03.01.jpg', ...
+            'dataset-kristjan/03.02.jpg', ...
+            'dataset-kristjan/03.03.jpg', ...
+            'dataset-kristjan/03.04.jpg', ...
+            'dataset-kristjan/03.05.jpg', ...
+            'dataset-kristjan/04.01.jpg', ...
+            'dataset-kristjan/04.02.jpg', ...
+            'dataset-kristjan/04.03.jpg', ...
+            'dataset-kristjan/04.04.jpg', ...
+            'dataset-kristjan/04.05.jpg', ...
+            'dataset-kristjan/05.01.jpg', ...
+            'dataset-kristjan/05.02.jpg', ...
+            'dataset-kristjan/05.03.jpg', ...
+            'dataset-kristjan/06.01.jpg', ...
+            'dataset-kristjan/06.02.jpg', ...
+            'dataset-kristjan/06.03.jpg', ...
+            'dataset-kristjan/07.01.jpg', ...
+            'dataset-kristjan/07.02.jpg', ...
+            'dataset-kristjan/08.01.jpg', ...
+            'dataset-kristjan/08.03.jpg' };
     end
 end
 
 %% Utility functions
-function ensure_path_exists (filename)
-    pathname = fileparts(filename);
-    if ~exist(pathname, 'dir'),
-        mkdir(pathname);
-    end
-end
-
-function handles = draw_boxes (boxes, fig, varargin)
-    parser = inputParser();
-    parser.addParameter('color', 'red', @ischar);
-    parser.addParameter('line_style', '-', @ischar);
-    parser.addParameter('line_width', 1.0, @isnumeric);
-    parser.parse(varargin{:});
-    
-    color = parser.Results.color;
-    line_style = parser.Results.line_style;    
-    line_width = parser.Results.line_width;    
-
-    % Make figure current
-    set(groot, 'CurrentFigure', fig);
-            
-    % [ x, y, w, h ] -> [ x1, y1, x2, y2 ]
-    x1 = boxes(:,1)';
-    y1 = boxes(:,2)';
-    x2 = boxes(:,1)' + boxes(:,3)' + 1;
-    y2 = boxes(:,2)' + boxes(:,4)' + 1;
-            
-    % Draw boxes
-    handles = line([ x1, x1, x1, x2;
-                     x2, x2, x1, x2 ], ...
-                   [ y1, y2, y1, y1;
-                     y1, y2, y2, y2 ], 'Color', color, 'LineStyle', line_style, 'LineWidth', line_width);
-end
-
 function boxes = enlarge_boxes (boxes, scale_factor)
     % boxes = ENLARGE_BOXES (boxes, scale_factor)
     
@@ -1019,13 +957,13 @@ function fig = visualize_detections_or_regions (I, polygon, annotations, detecti
 
     if ~isempty(annotations),
         % Draw ground-truth; TN and FN
-        draw_boxes(gt(gt(:,5) == 1,:), fig, 'color', 'cyan', 'line_style', '-'); % TP
-        draw_boxes(gt(gt(:,5) == 0,:), fig, 'color', 'yellow', 'line_style', '-'); % FN
-        draw_boxes(gt(gt(:,5) == -1,:), fig, 'color', 'magenta', 'line_style', '-'); % ignore
+        vicos.utils.draw_boxes(gt(gt(:,5) == 1,:), 'color', 'cyan', 'line_style', '-'); % TP
+        vicos.utils.draw_boxes(gt(gt(:,5) == 0,:), 'color', 'yellow', 'line_style', '-'); % FN
+        vicos.utils.draw_boxes(gt(gt(:,5) == -1,:), 'color', 'magenta', 'line_style', '-'); % ignore
 
         % Draw detections; TP and FP
-        draw_boxes(det(det(:,6) == 1,:), fig, 'color', 'green', 'line_style', '-'); % TP
-        draw_boxes(det(det(:,6) == 0,:), fig, 'color', 'red', 'line_style', '-'); % FP
+        vicos.utils.draw_boxes(det(det(:,6) == 1,:), 'color', 'green', 'line_style', '-'); % TP
+        vicos.utils.draw_boxes(det(det(:,6) == 0,:), 'color', 'red', 'line_style', '-'); % FP
 
         % Create fake plots for legend entries
         h = [];
@@ -1054,7 +992,7 @@ function fig = visualize_detections_or_regions (I, polygon, annotations, detecti
         end
         title = sprintf('%srecall: %.2f%%, precision: %.2f%%; counted: %d, annotated: %d ', prefix, recall, precision, num_detected, num_annotated);
     else
-        draw_boxes(detections, fig, 'color', 'green', 'line_style', '-'); % TP
+        vicos.utils.draw_boxes(detections, 'color', 'green', 'line_style', '-'); % TP
         title = sprintf('%s: num detected: %d', prefix, size(detections, 1));
     end
     
