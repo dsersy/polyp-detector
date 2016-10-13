@@ -1,4 +1,0 @@
-Compile LIBLINEAR, and place the resulting predict.${mex} and train.${mex}
-files into this folder as liblinear_predict.${mex} and liblinear_train.${mex},
-respectively. This renaming scheme is adopted to avoid potential clashes
-with LibSVM and built-in Matlab SVM functions.

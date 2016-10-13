@@ -31,7 +31,7 @@ classdef PolypDetector < handle
         training_negative_overlap = 0.1
         
         % Function handle for creating new SVM classifier
-        svm_create_function = @() classifier.LIBLINEAR()
+        svm_factory = @() vicos.svm.LibLinear()
         
         % Non-maxima suppression overlap threshold for confirmed detections
         svm_nms_overlap = 0.1
@@ -606,9 +606,9 @@ classdef PolypDetector < handle
             
             %% Classify with SVM
             fprintf('Performing SVM classification...\n');
-            [ ~, scores, ~ ] = self.svm_classifier.predict(features);
+            [ ~, scores ] = self.svm_classifier.predict(features);
             
-            positive_mask = scores > 0;
+            positive_mask = scores >= 0;
             positive_regions = regions(positive_mask,1:4);
             positive_scores = scores(positive_mask);
             
@@ -735,7 +735,7 @@ classdef PolypDetector < handle
             fprintf('Training SVM with %d samples, %d positive (%.2f%%), %d negative (%.2f%%)\n', numel(all_labels), sum(all_labels==1), 100*sum(all_labels==1)/numel(all_labels), sum(all_labels==-1), 100*sum(all_labels==-1)/numel(all_labels));
             
             % Train
-            svm = self.svm_create_function(); % Create SVM
+            svm = self.svm_factory(); % Create SVM
             svm.train(all_features, all_labels);
             
             if nargout < 1,
