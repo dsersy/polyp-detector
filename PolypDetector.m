@@ -67,7 +67,7 @@ classdef PolypDetector < handle
             
             % Create ACF detector wrapper
             acf_detector_file = parser.Results.acf_detector;
-            self.acf_detector = AcfDetector(acf_detector_file);
+            self.acf_detector = vicos.AcfDetector(acf_detector_file);
             
             % Create CNN feature extractor
             self.cnn_arguments = parser.Results.cnn_arguments;
@@ -486,7 +486,7 @@ classdef PolypDetector < handle
                 filename = fullfile(pathname, filename);
             end
             
-            self.acf_detector = AcfDetector(filename);
+            self.acf_detector = vicos.AcfDetector(filename);
         end
             
         function load_classifier (self, filename)
