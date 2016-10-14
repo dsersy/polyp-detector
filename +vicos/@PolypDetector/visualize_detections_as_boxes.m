@@ -1,5 +1,5 @@
-function fig = visualize_detections_or_regions (I, polygon, annotations, detections, varargin)
-    % fig = VISUALIZE_DETECTIONS_OR_REGIONS (I, polygon, annotations, detections, varargin)
+function fig = visualize_detections_as_boxes (I, polygon, annotations, detections, varargin)
+    % fig = VISUALIZE_DETECTIONS_AS_BOXES (I, polygon, annotations, detections, varargin)
     %
     % Visualizes detection/region-proposal bounding boxes.
 
@@ -37,7 +37,7 @@ function fig = visualize_detections_or_regions (I, polygon, annotations, detecti
     hold on;
 
     if ~isempty(annotations),
-        % Draw ground-truth; TN and FN
+        % Draw ground-truth; TP and FN
         vicos.utils.draw_boxes(gt(gt(:,5) == 1,:), 'color', 'cyan', 'line_style', '-'); % TP
         vicos.utils.draw_boxes(gt(gt(:,5) == 0,:), 'color', 'yellow', 'line_style', '-'); % FN
         vicos.utils.draw_boxes(gt(gt(:,5) == -1,:), 'color', 'magenta', 'line_style', '-'); % ignore
