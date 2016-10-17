@@ -31,24 +31,45 @@ function fig = visualize_detections_as_points (I, polygon, annotations, detectio
     imshow(Im);
     hold on;
     
-    if ~isempty(evaluate_against),
-        % Evaluate against selected set of manual annotations
-        idx = find(ismember(annotations(:,1), evaluate_against));
+    if ~isempty(evaluate_against) || size(annotations, 1) == 1,
+        if size(annotations, 1) == 1,
+            % There's only one set of annotations, and we evaluate against
+            % it
+            idx = 1;
+        else
+            % Evaluate against selected set of manual annotations
+            idx = find(ismember(annotations(:,1), evaluate_against));
+        end
+        
         name = annotations{idx, 1};
-        gt = annotations{idx, 2};
+        ground_truth = annotations{idx, 2};
         
         % Evaluate
-        [ gt, dt ] = evaluate_detections_as_points(detections, gt, 'threshold', threshold);
+        [ gt, dt ] = vicos.PolypDetector.evaluate_detections_as_points(detections, ground_truth, 'threshold', threshold);
         
         % Draw ground-truth; TP and FN
         gt_assigned = gt(:,end) ~= 0;
-        plot(gt(gt_assigned,1), gt(gt_assigned, 2), '+', 'Color', 'cyan'); % TP
-        plot(gt(~gt_assigned,1), gt(~gt_assigned, 2), '+', 'Color', 'yellow'); % FN
+        plot(gt(gt_assigned,1), gt(gt_assigned, 2), '+', 'Color', 'cyan', 'MarkerSize', 8, 'LineWidth', 2); % TP
+        plot(gt(~gt_assigned,1), gt(~gt_assigned, 2), '+', 'Color', 'yellow', 'MarkerSize', 8, 'LineWidth', 2); % FN
         
         % Draw detections; TP and FP
         dt_assigned = dt(:,end) ~= 0;
-        plot(dt(dt_assigned,1), dt(dt_assigned, 2), 'x', 'Color', 'green'); % TP
-        plot(dt(~dt_assigned,1), dt(~dt_assigned, 2), 'x', 'Color', 'red'); % FP
+        plot(dt(dt_assigned,1), dt(dt_assigned, 2), 'x', 'Color', 'green', 'MarkerSize', 8, 'LineWidth', 2); % TP
+        plot(dt(~dt_assigned,1), dt(~dt_assigned, 2), 'x', 'Color', 'red', 'MarkerSize', 8, 'LineWidth', 2); % FP
+        
+        % Draw assignments
+        for p = 1:size(dt, 1),
+            midx = dt(p,end);
+            if midx > 0,
+                plot([ dt(p,1), gt(midx, 1) ], [ dt(p,2), gt(midx, 2) ], 'c-', 'LineWidth', 1.5);
+            end
+        end
+        for p = 1:size(gt, 1),
+            midx = gt(p,end);
+            if midx > 0,
+                plot([ gt(p,1), dt(midx, 1) ], [ gt(p,2), dt(midx, 2) ], 'g-', 'LineWidth', 1.5, 'LineStyle', '--');
+            end
+        end
 
         % Create fake plots for legend entries
         h = [];
@@ -57,6 +78,24 @@ function fig = visualize_detections_as_points (I, polygon, annotations, detectio
         h(end+1) = plot([0,0], [0,0], 'x', 'Color', 'green', 'LineWidth', 2);
         h(end+1) = plot([0,0], [0,0], 'x', 'Color', 'red', 'LineWidth', 2);
         legend(h, 'TP (annotated)', 'FN', 'TP (det)', 'FP');
+        
+        % Numeric evaluation
+        tp = sum(dt(:,end)  > 0);
+        fp = sum(dt(:,end) == 0);
+        %tp = sum(gt(:,end)  > 0);
+        fn = sum(gt(:,end) == 0);
+        
+        precision = tp / (tp + fp)*100;
+        recall    = tp / (tp + fn)*100;
+        
+        num_detected = size(dt, 1);
+        num_annotated = size(gt, 1);
+        
+        % Set title
+        if ~isempty(prefix),
+            prefix = sprintf('%s: ', prefix);
+        end
+        title = sprintf('%srecall: %.2f%%, precision: %.2f%%; counted: %d, annotated: %d ', prefix, recall, precision, num_detected, num_annotated);
     else
         % Draw all manual annotations
         h = [];
@@ -81,10 +120,11 @@ function fig = visualize_detections_as_points (I, polygon, annotations, detectio
         
         % Legend
         legend(h, legend_entries, 'Location', 'NorthEast', 'Interpreter', 'none');
+
+        title = prefix;
     end
     
     % Set title    
-    title = prefix;
     set(fig, 'Name', title);
     
     % Display as text as well

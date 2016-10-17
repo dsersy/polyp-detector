@@ -130,9 +130,10 @@ classdef PolypDetector < handle
 
         % Evaluation
         [ gt, dt ] = evaluate_detections (detections, annotations, varargin)
+        [ gt, dt ] = evaluate_detections_as_points (detections, annotations, varargin)
 
         % Visualization
-        fig = visualize_detections_or_regions (I, polygon, annotations, detections, varargin)
+        fig = visualize_detections_as_boxes (I, polygon, annotations, detections, varargin)
         fig = visualize_detections_as_points (I, polygon, annotations, detections, varargin)
     end
     

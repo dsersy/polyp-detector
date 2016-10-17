@@ -13,6 +13,8 @@ function detections = process_image (self, image_filename, varargin)
     %      pipeline). Default: false
     %    - display_regions: whether to visualize detected regions
     %      or not (default: false)
+    %    - display_regions_as_points: whether to visualize detected regions
+    %      as points (default: false)
     %    - display_detections: whether to visualize obtained
     %      detections (default: false)
     %    - display_detections_as_points: whether to visualize
@@ -29,6 +31,7 @@ function detections = process_image (self, image_filename, varargin)
     parser.addParameter('cache_dir', '', @ischar);
     parser.addParameter('regions_only', false, @islogical);
     parser.addParameter('display_regions', false, @islogical);
+    parser.addParameter('display_regions_as_points', false, @islogical);
     parser.addParameter('display_detections', false, @islogical);
     parser.addParameter('display_detections_as_points', false, @islogical);
     parser.addParameter('overlap_threshold', self.evaluation_overlap, @isnumeric);
@@ -37,6 +40,7 @@ function detections = process_image (self, image_filename, varargin)
     cache_dir = parser.Results.cache_dir;
     regions_only = parser.Results.regions_only;
     display_regions = parser.Results.display_regions;
+    display_regions_as_points = parser.Results.display_regions_as_points;
     display_detections = parser.Results.display_detections;
     display_detections_as_points = parser.Results.display_detections_as_points;
     overlap_threshold = parser.Results.overlap_threshold;
@@ -54,6 +58,13 @@ function detections = process_image (self, image_filename, varargin)
     xmax = max(poly(:,1));
     ymin = min(poly(:,2));
     ymax = max(poly(:,2));
+    
+    % Clamp
+    xmin = max(round(xmin), 1);
+    xmax = min(round(xmax), size(Im, 2));
+    ymin = max(round(ymin), 1);
+    ymax = max(round(ymax), size(Im, 1));
+    
     Im = Im(ymin:ymax, xmin:xmax, :);
     
     %% *** 1st stage: region proposal ***
@@ -73,7 +84,12 @@ function detections = process_image (self, image_filename, varargin)
     
     % Display ACF regions
     if display_regions,
-        self.visualize_detections_or_regions(I, poly, annotations, regions, 'multiple_matches', true, 'overlap_threshold', overlap_threshold, 'prefix', sprintf('%s: ACF', basename));
+        self.visualize_detections_as_boxes(I, poly, annotations, regions, 'multiple_matches', true, 'overlap_threshold', overlap_threshold, 'prefix', sprintf('%s: ACF', basename));
+    end
+    
+    % Display ACF regions as points
+    if display_regions_as_points,
+        self.visualize_detections_as_points(I, poly, annotations_pts, regions, 'prefix', sprintf('%s: ACF', basename));
     end
     
     if regions_only,
@@ -114,11 +130,11 @@ function detections = process_image (self, image_filename, varargin)
     
     % Display detections
     if display_detections,
-        self.visualize_detections_or_regions(I, poly, annotations, detections, 'multiple_matches', false, 'overlap_threshold', overlap_threshold, 'prefix', sprintf('%s: Final', basename));
+        self.visualize_detections_as_boxes(I, poly, annotations, detections, 'multiple_matches', false, 'overlap_threshold', overlap_threshold, 'prefix', sprintf('%s: Final', basename));
     end
     
     % Display detection points
     if display_detections_as_points,
-        self.visualize_detections_as_points(I, poly, annotations_pts, detections, 'prefix', sprintf('%s: Final points', basename));
+        self.visualize_detections_as_points(I, poly, annotations_pts, detections, 'prefix', sprintf('%s: Final', basename));
     end
 end

@@ -43,7 +43,7 @@ function [ gt, dt ] = evaluate_detections_as_points (detections, annotations, va
         % LAPJV assigns the invalid (Inf) entries as well, so we need to
         % check fo those manually.
         if isfinite(D(dt_idx, gt_idx)),
-            dt(i,end) = gt_idx;
+            dt(dt_idx,end) = gt_idx;
             gt(gt_idx,end) = dt_idx;
         end
     end
