@@ -104,6 +104,9 @@ classdef PolypDetector < handle
         
         % Classifier training
         svm = train_svm_classifier (self, varargin)
+        
+        % Utility functions
+        identifier = construct_classifier_identifier (self)
     end
     
     methods (Static)
