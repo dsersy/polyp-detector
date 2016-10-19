@@ -8,7 +8,11 @@ classdef LibLinear < vicos.svm.Classifier
     properties
         C
         bias
-                
+        
+        % Weight samples inversely to their frequency (in order to balance
+        % them out)
+        weight_samples
+        
         % SVM
         model
     end
@@ -27,6 +31,9 @@ classdef LibLinear < vicos.svm.Classifier
             %       search
             %     - bias: bias; if empty (default), the LIBLINEAR-default
             %       value is used
+            %     - weight_samples: whether to weight the samples inversely
+            %       to the frequency of their class (to balance them).
+            %       Default: false
             %
             % Output:
             %  - self:
@@ -40,10 +47,12 @@ classdef LibLinear < vicos.svm.Classifier
             parser = inputParser();
             parser.addParameter('C', [], @isscalar);
             parser.addParameter('bias', [], @isscalar);
+            parser.addParameter('weight_samples', false, @isscalar);
             parser.parse(varargin{:});
 
             self.C = parser.Results.C;
             self.bias = parser.Results.bias;
+            self.weight_samples = parser.Results.weight_samples;
         end
     end
     
@@ -51,6 +60,9 @@ classdef LibLinear < vicos.svm.Classifier
     methods (Access = public)
         function identifier = get_identifier (self)
             identifier = 'liblinear';
+            if self.weight_samples,
+                identifier = [ identifier, '_weighted' ];
+            end
         end
         
         function train (self, features, labels)
@@ -66,11 +78,22 @@ classdef LibLinear < vicos.svm.Classifier
             % LIBLINEAR options; we use primal formulation of L2-regularized
             % L2-loss SVC because it supports automatic estimation of the 
             % C parameter...
-            liblinear_opts = '-q -s 2 ';
+            liblinear_opts = '-q -s 2';
+            
+            % Sample weighting
+            if self.weight_samples,
+                num_pos = sum(labels ==  1);
+                num_neg = sum(labels == -1);
+                
+                w_pos = num_neg / (num_pos + num_neg);
+                w_neg = num_pos / (num_pos + num_neg);
+                
+                liblinear_opts = [ liblinear_opts, sprintf(' -w-1 %g -w1 %g', w_neg, w_pos) ];
+            end
             
             % Bias
             if ~isempty(self.bias),
-                liblinear_opts = [ liblinear_opts, sprintf('-B %f ', self.bias) ];
+                liblinear_opts = [ liblinear_opts, sprintf(' -B %f ', self.bias) ];
             end
             
             % C; if not provided, estimate via cross-validation
@@ -81,7 +104,7 @@ classdef LibLinear < vicos.svm.Classifier
                 optC = self.C;
             end
             
-            liblinear_opts = [ liblinear_opts, sprintf('-c %f ', optC) ];
+            liblinear_opts = [ liblinear_opts, sprintf(' -c %f ', optC) ];
             
             % Train the final model
             self.model = train(labels', sparse(double(features)), liblinear_opts, 'col');
