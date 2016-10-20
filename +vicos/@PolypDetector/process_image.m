@@ -39,6 +39,7 @@ function detections = process_image (self, image_filename, varargin)
     parser.addParameter('display_detections_as_points', false, @islogical);
     parser.addParameter('overlap_threshold', self.evaluation_overlap, @isnumeric);
     parser.addParameter('distance_threshold', self.evaluation_distance, @isnumeric);
+    parser.addParameter('rescale_image', 1.0, @isnumeric);
     parser.parse(varargin{:});
     
     cache_dir = parser.Results.cache_dir;
@@ -49,6 +50,7 @@ function detections = process_image (self, image_filename, varargin)
     display_detections_as_points = parser.Results.display_detections_as_points;
     overlap_threshold = parser.Results.overlap_threshold;
     distance_threshold = parser.Results.distance_threshold;
+    rescale_image = parser.Results.rescale_image;
     
     %% Load and prepare the image
     [ I, basename, poly, annotations, annotations_pts ] = self.load_data(image_filename);
@@ -68,20 +70,26 @@ function detections = process_image (self, image_filename, varargin)
     xmin = max(round(xmin), 1);
     xmax = min(round(xmax), size(Im, 2));
     ymin = max(round(ymin), 1);
-    ymax = max(round(ymax), size(Im, 1));
+    ymax = min(round(ymax), size(Im, 1));
     
     Im = Im(ymin:ymax, xmin:xmax, :);
+    
+    % Upscale the image
+    Im = imresize(Im, rescale_image);
     
     %% *** 1st stage: region proposal ***
     %% Run ACF detector
     if ~isempty(cache_dir),
-        acf_cache_file = fullfile(cache_dir, 'acf-cache', [ basename, '.mat' ]);
+        acf_cache_file = fullfile(cache_dir, 'acf-cache', sprintf('%s-scale_%g-acf_nms_%g.mat', basename, rescale_image, self.acf_nms_overlap));
     else
         acf_cache_file = '';
     end
     
     % Detect
     regions = self.detect_candidate_regions(Im, acf_cache_file);
+    
+    % Undo the scaling
+    regions = regions / rescale_image;
     
     % Undo the effect of the crop
     regions(:,1) = regions(:,1) + xmin;
@@ -109,7 +117,7 @@ function detections = process_image (self, image_filename, varargin)
     %% Extract CNN features from detected regions
     % Make sure to extract from original image, and not masked one!
     if ~isempty(cache_dir),
-        cnn_cache_file = fullfile(cache_dir, 'cnn-cache', [ basename, '.mat' ]);
+        cnn_cache_file = fullfile(cache_dir, 'cnn-cache', sprintf('%s-scale_%g-acf_nms_%g.mat', basename, rescale_image, self.acf_nms_overlap));
     else
         cnn_cache_file = '';
     end
