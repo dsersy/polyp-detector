@@ -42,8 +42,11 @@ classdef PolypDetector < handle
         % Non-maxima suppression overlap threshold for confirmed detections
         svm_nms_overlap = 0.1
         
-        % Evaluation overlap
+        % Evaluation overlap threshold
         evaluation_overlap = 0.1
+        
+        % Evaluation distance threshold (in pixels)
+        evaluation_distance = 32
     end
         
     %% Public API

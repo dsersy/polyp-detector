@@ -20,8 +20,11 @@ function detections = process_image (self, image_filename, varargin)
     %    - display_detections_as_points: whether to visualize
     %      obtained detections as points (default: false)
     %    - overlap_threshold: overlap threshold used when declaring
-    %      a region as positive or negative in visualization
+    %      a detection as positive or negative in box visualization
     %      (default: use evaluation_overlap setting)
+    %    - distance_threshold: distance threshold used when declaring a
+    %      detection as positive or negative in point visualization
+    %      (default: use the evaluation_distance setting)
     %
     % Output:
     %  - detections
@@ -35,6 +38,7 @@ function detections = process_image (self, image_filename, varargin)
     parser.addParameter('display_detections', false, @islogical);
     parser.addParameter('display_detections_as_points', false, @islogical);
     parser.addParameter('overlap_threshold', self.evaluation_overlap, @isnumeric);
+    parser.addParameter('distance_threshold', self.evaluation_distance, @isnumeric);
     parser.parse(varargin{:});
     
     cache_dir = parser.Results.cache_dir;
@@ -44,6 +48,7 @@ function detections = process_image (self, image_filename, varargin)
     display_detections = parser.Results.display_detections;
     display_detections_as_points = parser.Results.display_detections_as_points;
     overlap_threshold = parser.Results.overlap_threshold;
+    distance_threshold = parser.Results.distance_threshold;
     
     %% Load and prepare the image
     [ I, basename, poly, annotations, annotations_pts ] = self.load_data(image_filename);
@@ -89,7 +94,7 @@ function detections = process_image (self, image_filename, varargin)
     
     % Display ACF regions as points
     if display_regions_as_points,
-        self.visualize_detections_as_points(I, poly, annotations_pts, regions, 'prefix', sprintf('%s: ACF', basename));
+        self.visualize_detections_as_points(I, poly, annotations_pts, regions, 'distance_threshold', distance_threshold, 'prefix', sprintf('%s: ACF', basename));
     end
     
     if regions_only,
@@ -135,6 +140,6 @@ function detections = process_image (self, image_filename, varargin)
     
     % Display detection points
     if display_detections_as_points,
-        self.visualize_detections_as_points(I, poly, annotations_pts, detections, 'prefix', sprintf('%s: Final', basename));
+        self.visualize_detections_as_points(I, poly, annotations_pts, detections, 'distance_threshold', distance_threshold, 'prefix', sprintf('%s: Final', basename));
     end
 end

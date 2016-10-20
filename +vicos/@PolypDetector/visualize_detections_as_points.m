@@ -6,13 +6,13 @@ function fig = visualize_detections_as_points (I, polygon, annotations, detectio
     parser = inputParser();
     parser.addParameter('fig', [], @ishandle);
     parser.addParameter('prefix', '', @ischar);
-    parser.addParameter('threshold', 32, @isnumeric);
+    parser.addParameter('distance_threshold', 32, @isnumeric);
     parser.addParameter('evaluate_against', '', @ischar);
     parser.parse(varargin{:});
 
     fig = parser.Results.fig;
     prefix = parser.Results.prefix;
-    threshold = parser.Results.threshold;
+    distance_threshold = parser.Results.distance_threshold;
     evaluate_against = parser.Results.evaluate_against;
 
     % Create mask
@@ -45,7 +45,7 @@ function fig = visualize_detections_as_points (I, polygon, annotations, detectio
         ground_truth = annotations{idx, 2};
         
         % Evaluate
-        [ gt, dt ] = vicos.PolypDetector.evaluate_detections_as_points(detections, ground_truth, 'threshold', threshold);
+        [ gt, dt ] = vicos.PolypDetector.evaluate_detections_as_points(detections, ground_truth, 'threshold', distance_threshold);
         
         % Draw ground-truth; TP and FN
         gt_assigned = gt(:,end) ~= 0;
