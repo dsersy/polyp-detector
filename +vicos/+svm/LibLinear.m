@@ -85,9 +85,9 @@ classdef LibLinear < vicos.svm.Classifier
                 num_pos = sum(labels ==  1);
                 num_neg = sum(labels == -1);
                 
-                w_pos = num_neg / (num_pos + num_neg);
-                w_neg = num_pos / (num_pos + num_neg);
-                
+                w_pos = (num_pos + num_neg) / (2 * num_pos);
+                w_neg = (num_pos + num_neg) / (2 * num_neg);
+                                
                 liblinear_opts = [ liblinear_opts, sprintf(' -w-1 %g -w1 %g', w_neg, w_pos) ];
             end
             
