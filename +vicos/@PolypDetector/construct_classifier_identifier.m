@@ -16,10 +16,10 @@ function identifier = construct_classifier_identifier (self)
     identifier = classifier.get_identifier();
     
     % Append positive/negative overlap settings
-    identifier = [ identifier, sprintf('_pos-%g_neg-%g', self.training_positive_overlap, self.training_negative_overlap) ];
+    identifier = [ identifier, sprintf('-acf_nms_%g-pos_%g-neg_%g', self.acf_nms_overlap, self.training_positive_overlap, self.training_negative_overlap) ];
     
     % L2 normalization flag
     if self.l2_normalized_features,
-        identifier = [ identifier, '_l2' ];
+        identifier = [ identifier, '-l2' ];
     end
 end

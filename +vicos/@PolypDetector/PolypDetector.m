@@ -21,7 +21,7 @@ classdef PolypDetector < handle
         
         %% Pipeline parameters
         % Non-maxima suppresion overlap threshold for ACF detection step
-        acf_nms_overlap = 0.75
+        acf_nms_overlap = 0.5
         
         % Additional scaling applied to the ACF detections.
         acf_box_scaling = 1.0
