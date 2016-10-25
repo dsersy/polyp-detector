@@ -1,6 +1,6 @@
 [submodule "external/piotr_toolbox"]
 	path = external/piotr_toolbox
-	url = https://github.com/pdollar/toolbox
+	url = https://github.com/rokm/pdollar-toolbox
 [submodule "external/liblinear"]
 	path = external/liblinear
 	url = https://github.com/cjlin1/liblinear
