@@ -4,7 +4,7 @@ function fig = visualize_detections_as_boxes (I, polygon, annotations, detection
     % Visualizes detection/region-proposal bounding boxes.
 
     parser = inputParser();
-    parser.addParameter('fig', [], @ishandle);
+    parser.addParameter('fig', [], @(x) isempty(x) || ishandle(x));
     parser.addParameter('multiple_matches', false, @islogical);
     parser.addParameter('overlap_threshold', 0.3, @isnumeric);
     parser.addParameter('prefix', '', @ischar);

@@ -4,7 +4,7 @@ function fig = visualize_detections_as_points (I, polygon, annotations, detectio
     % Visualizes detection/region proposal centroids.
 
     parser = inputParser();
-    parser.addParameter('fig', [], @ishandle);
+    parser.addParameter('fig', [], @(x) isempty(x) || ishandle(x));
     parser.addParameter('prefix', '', @ischar);
     parser.addParameter('distance_threshold', 32, @isnumeric);
     parser.addParameter('evaluate_against', '', @ischar);
