@@ -1,11 +1,27 @@
-function leave_one_out_cross_validation (self, result_dir)
-    % LEAVE_ONE_OUT_CROSS_VALIDATION (self, result_dir)
+function leave_one_out_cross_validation (self, result_dir, varargin)
+    % LEAVE_ONE_OUT_CROSS_VALIDATION (self, result_dir, varargin)
+    
+    parser = inputParser();
+    parser.addParameter('images', {}, @iscell);
+    parser.addParameter('store_visualizations', false, @islogical);
+    parser.parse(varargin{:});
+    
+    images = parser.Results.images;
+    if isempty(images),
+        images = union(self.default_train_images, self.default_test_images);
+    end
+    
+    store_visualizations = parser.Results.store_visualizations;
+    
+    if store_visualizations,
+        fig_boxes = figure('Visible', 'off');
+        fig_points = figure('Visible', 'off');
+    end
     
     % Cache
     cache_dir = fullfile(result_dir, 'cache');
     
     % Create list of images
-    images = union(self.default_train_images, self.default_test_images);
     
     %% Leave-one-out loop
     all_results = repmat(struct(...
@@ -57,7 +73,13 @@ function leave_one_out_cross_validation (self, result_dir)
         end
         
         %% Process the left-out image
-        detections = self.process_image(test_image, 'cache_dir', cache_dir);
+        if store_visualizations,
+            extra_args = { 'display_detections', fig_boxes, 'display_detections_as_points', fig_points };
+        else
+            extra_args = false;
+        end
+        
+        detections = self.process_image(test_image, 'cache_dir', cache_dir, extra_args{:});
         
         %% Evaluate
         % Create mask
@@ -90,6 +112,15 @@ function leave_one_out_cross_validation (self, result_dir)
         
         vicos.utils.ensure_path_exists(results_file);
         save(results_file, '-v7.3', '-struct', 'results');
+        
+        % Save visualization
+        if store_visualizations,
+            figure_file = fullfile(result_dir, [ basename, '-boxes.fig' ]);
+            savefig(fig_boxes, figure_file);
+            
+            figure_file = fullfile(result_dir, [ basename, '-points.fig' ]);
+            savefig(fig_points, figure_file);
+        end
         
         all_results(i) = results;
     end

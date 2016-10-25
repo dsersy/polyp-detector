@@ -34,7 +34,7 @@ classdef PolypDetector < handle
         % only if traning_positive_overlap and training_negative_overlap
         % have different values)
         training_positive_overlap = 0.1
-        training_negative_overlap = 0.01
+        training_negative_overlap = 0.05
         
         % L2-normalize feature vectors
         l2_normalized_features = true
@@ -96,7 +96,7 @@ classdef PolypDetector < handle
     
         % Batch train/evaluation methods
         train_and_evaluate (self, result_dir, varargin)
-        leave_one_out_cross_validation (self, result_dir)
+        leave_one_out_cross_validation (self, result_dir, varargin)
         
         % Detector/classifier loading
         load_acf_detector (self, filename)
