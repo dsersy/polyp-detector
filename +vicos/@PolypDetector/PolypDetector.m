@@ -33,8 +33,8 @@ classdef PolypDetector < handle
         % between the values are discarded from SVM training (applicable
         % only if traning_positive_overlap and training_negative_overlap
         % have different values)
-        training_positive_overlap = 0.5
-        training_negative_overlap = 0.1
+        training_positive_overlap = 0.1
+        training_negative_overlap = 0.01
         
         % L2-normalize feature vectors
         l2_normalized_features = true
