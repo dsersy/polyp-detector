@@ -139,6 +139,10 @@ function detections = process_image (self, image_filename, varargin)
     
     % Display ACF regions as points
     if display_regions_as_points,
+        if isempty(annotations_pts) && ~isempty(annotations),
+            annotations_pts = { 'Annotated box centers', annotations(:,1:2) + annotations(:,3:4)/2 };
+        end
+        
         self.visualize_detections_as_points(I, poly, annotations_pts, regions, 'fig', display_regions_as_points_fig, 'distance_threshold', distance_threshold, 'prefix', sprintf('%s: ACF', basename));
     end
     
@@ -185,6 +189,10 @@ function detections = process_image (self, image_filename, varargin)
     
     % Display detection points
     if display_detections_as_points,
+        if isempty(annotations_pts) && ~isempty(annotations),
+            annotations_pts = { 'Annotated box centers', annotations(:,1:2) + annotations(:,3:4)/2 };
+        end
+        
         self.visualize_detections_as_points(I, poly, annotations_pts, detections, 'fig', display_detections_as_points_fig, 'distance_threshold', distance_threshold, 'prefix', sprintf('%s: Final', basename));
     end
 end
