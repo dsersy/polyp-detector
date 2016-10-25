@@ -14,8 +14,9 @@ function leave_one_out_cross_validation (self, result_dir, varargin)
     store_visualizations = parser.Results.store_visualizations;
     
     if store_visualizations,
-        fig_boxes = figure('Visible', 'off');
-        fig_points = figure('Visible', 'off');
+        visible = 'off';
+        fig_boxes = figure('Visible', visible);
+        fig_points = figure('Visible', visible);
     end
     
     % Cache
