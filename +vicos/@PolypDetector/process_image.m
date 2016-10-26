@@ -27,7 +27,14 @@ function detections = process_image (self, image_filename, varargin)
     %      (default: use evaluation_overlap setting)
     %    - distance_threshold: distance threshold used when declaring a
     %      detection as positive or negative in point visualization
-    %      (default: use the evaluation_distance setting)
+    %      (default: use the object's evaluation_distance setting)
+    %    - enhance_image: logical flag indicating whether image should be
+    %      enchanced with Contrast-Limited Adaptive Histogram Equalization
+    %      before being processed (default: use the object's enhance_image
+    %      setting)
+    %    - rescale_image: scale factor by which the image should be resized
+    %      before processing. Note that rescaling is applied after image is
+    %      cropped to the ROI size.
     %
     % Output:
     %  - detections
@@ -46,6 +53,7 @@ function detections = process_image (self, image_filename, varargin)
     parser.addParameter('display_detections_as_points', false, @(x) islogical(x) || ishandle(x));
     parser.addParameter('overlap_threshold', self.evaluation_overlap, @isnumeric);
     parser.addParameter('distance_threshold', self.evaluation_distance, @isnumeric);
+    parser.addParameter('enhance_image', self.enhance_image, @islogical);
     parser.addParameter('rescale_image', 1.0, @isnumeric);
     parser.parse(varargin{:});
     
@@ -57,6 +65,7 @@ function detections = process_image (self, image_filename, varargin)
     display_detections_as_points = parser.Results.display_detections_as_points;
     overlap_threshold = parser.Results.overlap_threshold;
     distance_threshold = parser.Results.distance_threshold;
+    enhance_image = parser.Results.enhance_image;
     rescale_image = parser.Results.rescale_image;
     
     % Figures (because we allow figure handle to be passed via display_
@@ -90,7 +99,14 @@ function detections = process_image (self, image_filename, varargin)
     end    
     
     %% Load and prepare the image
-    [ I, basename, poly, annotations, annotations_pts ] = self.load_data(image_filename);
+    [ Iorig, basename, poly, annotations, annotations_pts ] = self.load_data(image_filename);
+    
+    % Enhance the image
+    if enhance_image,
+        I = vicos.utils.adaptive_histogram_equalization(Iorig, 'NumTiles', [ 16, 16 ]);
+    else
+        I = Iorig;
+    end
     
     % Mask the image
     mask = poly2mask(poly(:,1), poly(:,2), size(I,1), size(I,2));
@@ -134,7 +150,7 @@ function detections = process_image (self, image_filename, varargin)
     
     % Display ACF regions
     if display_regions,
-        self.visualize_detections_as_boxes(I, poly, annotations, regions, 'fig', display_regions_fig, 'multiple_matches', true, 'overlap_threshold', overlap_threshold, 'prefix', sprintf('%s: ACF', basename));
+        self.visualize_detections_as_boxes(Iorig, poly, annotations, regions, 'fig', display_regions_fig, 'multiple_matches', true, 'overlap_threshold', overlap_threshold, 'prefix', sprintf('%s: ACF', basename));
     end
     
     % Display ACF regions as points
@@ -143,7 +159,7 @@ function detections = process_image (self, image_filename, varargin)
             annotations_pts = { 'Annotated box centers', annotations(:,1:2) + annotations(:,3:4)/2 };
         end
         
-        self.visualize_detections_as_points(I, poly, annotations_pts, regions, 'fig', display_regions_as_points_fig, 'distance_threshold', distance_threshold, 'prefix', sprintf('%s: ACF', basename));
+        self.visualize_detections_as_points(Iorig, poly, annotations_pts, regions, 'fig', display_regions_as_points_fig, 'distance_threshold', distance_threshold, 'prefix', sprintf('%s: ACF', basename));
     end
     
     if regions_only,
@@ -184,7 +200,7 @@ function detections = process_image (self, image_filename, varargin)
     
     % Display detections
     if display_detections,
-        self.visualize_detections_as_boxes(I, poly, annotations, detections, 'fig', display_detections_fig, 'multiple_matches', false, 'overlap_threshold', overlap_threshold, 'prefix', sprintf('%s: Final', basename));
+        self.visualize_detections_as_boxes(Iorig, poly, annotations, detections, 'fig', display_detections_fig, 'multiple_matches', false, 'overlap_threshold', overlap_threshold, 'prefix', sprintf('%s: Final', basename));
     end
     
     % Display detection points
@@ -193,6 +209,6 @@ function detections = process_image (self, image_filename, varargin)
             annotations_pts = { 'Annotated box centers', annotations(:,1:2) + annotations(:,3:4)/2 };
         end
         
-        self.visualize_detections_as_points(I, poly, annotations_pts, detections, 'fig', display_detections_as_points_fig, 'distance_threshold', distance_threshold, 'prefix', sprintf('%s: Final', basename));
+        self.visualize_detections_as_points(Iorig, poly, annotations_pts, detections, 'fig', display_detections_as_points_fig, 'distance_threshold', distance_threshold, 'prefix', sprintf('%s: Final', basename));
     end
 end

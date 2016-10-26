@@ -20,6 +20,9 @@ classdef PolypDetector < handle
         classifier_factory
         
         %% Pipeline parameters
+        % Image enhancement
+        enhance_image = false
+        
         % Non-maxima suppresion overlap threshold for ACF detection step
         acf_nms_overlap = 0.5
         
