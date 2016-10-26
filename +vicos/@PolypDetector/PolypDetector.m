@@ -113,6 +113,7 @@ classdef PolypDetector < handle
         
         % Utility functions
         identifier = construct_classifier_identifier (self)
+        identifier = construct_cache_filename (self, basename, enhance_image, rescale_image, acf_nms_overlap)
     end
     
     methods (Static)

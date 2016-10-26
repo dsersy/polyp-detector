@@ -46,7 +46,8 @@ function svm = train_svm_classifier (self, varargin)
         % process_image() function!
         if ~isempty(cache_dir),
             rescale_image = 1; % We do not support rescaling here...
-            cnn_cache_file = fullfile(cache_dir, 'cnn-cache', sprintf('%s-scale_%g-acf_nms_%g.mat', basename, rescale_image, self.acf_nms_overlap));
+            cache_basename = self.construct_cache_filename(basename, self.enhance_image, rescale_image, self.acf_nms_overlap);
+            cnn_cache_file = fullfile(cache_dir, 'cnn-cache', [ cache_basename, '.mat' ]);
         else
             cnn_cache_file = '';
         end

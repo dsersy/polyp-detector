@@ -131,9 +131,11 @@ function detections = process_image (self, image_filename, varargin)
     Im = imresize(Im, rescale_image);
     
     %% *** 1st stage: region proposal ***
+    cache_basename = self.construct_cache_filename(basename, enhance_image, rescale_image, self.acf_nms_overlap);
+    
     %% Run ACF detector
     if ~isempty(cache_dir),
-        acf_cache_file = fullfile(cache_dir, 'acf-cache', sprintf('%s-scale_%g-acf_nms_%g.mat', basename, rescale_image, self.acf_nms_overlap));
+        acf_cache_file = fullfile(cache_dir, 'acf-cache', [ cache_basename, '.mat' ]);
     else
         acf_cache_file = '';
     end
@@ -174,7 +176,7 @@ function detections = process_image (self, image_filename, varargin)
     %% Extract CNN features from detected regions
     % Make sure to extract from original image, and not masked one!
     if ~isempty(cache_dir),
-        cnn_cache_file = fullfile(cache_dir, 'cnn-cache', sprintf('%s-scale_%g-acf_nms_%g.mat', basename, rescale_image, self.acf_nms_overlap));
+        cnn_cache_file = fullfile(cache_dir, 'cnn-cache', [ cache_basename, '.mat' ]);
     else
         cnn_cache_file = '';
     end
