@@ -109,9 +109,7 @@ function detections = process_image (self, image_filename, varargin)
     end
     
     % Mask the image
-    mask = poly2mask(poly(:,1), poly(:,2), size(I,1), size(I,2));
-    mask = imgaussfilt(double(mask), 2);
-    Im = uint8( bsxfun(@times, double(I), mask) );
+    Im = self.mask_image_with_polygon(I, poly);
     
     % Crop the image
     xmin = min(poly(:,1));

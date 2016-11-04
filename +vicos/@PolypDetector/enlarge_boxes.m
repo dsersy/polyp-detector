@@ -1,5 +1,21 @@
 function boxes = enlarge_boxes (boxes, scale_factor)
     % boxes = ENLARGE_BOXES (boxes, scale_factor)
+    %
+    % Enlarges input boxes by the specified scale factor, preserving the
+    % boxes' centroids.
+    %
+    % Input:
+    %  - boxes: Nx4 matrix of boxes ([ x, y, w, h ]). Any additional
+    %    columns are preserved.
+    %  - scale_factor: scale factor
+    %
+    % Output:
+    %  - boxes: rescaled boxes
+    
+    % Catch the no-op case
+    if scale_factor == 1,
+        return;
+    end
     
     % Load
     x = boxes(:,1);

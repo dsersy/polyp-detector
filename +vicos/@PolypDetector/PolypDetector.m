@@ -111,7 +111,6 @@ classdef PolypDetector < handle
         % Classifier training
         svm = train_svm_classifier (self, varargin)
         
-        % Utility functions
         identifier = construct_classifier_identifier (self)
         identifier = construct_cache_filename (self, basename, enhance_image, rescale_image, acf_nms_overlap)
     end
@@ -134,6 +133,9 @@ classdef PolypDetector < handle
         
         % Data loading
         [ I, basename, poly, boxes, manual_annotations ] = load_data (image_filename)
+        
+        % Utility functions
+        Im = mask_image_with_polygon (I, poly)
         
         % Box enlargement
         boxes = enlarge_boxes (boxes, scale_factor)
