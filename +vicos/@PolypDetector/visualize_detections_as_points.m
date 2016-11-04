@@ -45,17 +45,23 @@ function fig = visualize_detections_as_points (I, polygon, annotations, detectio
         ground_truth = annotations{idx, 2};
         
         % Evaluate
-        [ gt, dt ] = vicos.PolypDetector.evaluate_detections_as_points(detections, ground_truth, 'threshold', distance_threshold);
+        [ gt, dt ] = vicos.PolypDetector.evaluate_detections_as_points(detections, ground_truth, 'threshold', distance_threshold, 'validity_mask', mask);
         
         % Draw ground-truth; TP and FN
-        gt_assigned = gt(:,end) ~= 0;
+        gt_assigned = gt(:,end) > 0;
+        gt_unassigned = gt(:,end) == 0;
+        gt_ignored = gt(:,end) < 0;
         plot(gt(gt_assigned,1), gt(gt_assigned, 2), '+', 'Color', 'cyan', 'MarkerSize', 8, 'LineWidth', 2); % TP
-        plot(gt(~gt_assigned,1), gt(~gt_assigned, 2), '+', 'Color', 'yellow', 'MarkerSize', 8, 'LineWidth', 2); % FN
+        plot(gt(gt_unassigned,1), gt(gt_unassigned, 2), '+', 'Color', 'yellow', 'MarkerSize', 8, 'LineWidth', 2); % FN
+        plot(gt(gt_ignored,1), gt(gt_ignored, 2), '+', 'Color', 'magenta', 'MarkerSize', 8, 'LineWidth', 2); % ignored
         
         % Draw detections; TP and FP
-        dt_assigned = dt(:,end) ~= 0;
+        dt_assigned = dt(:,end) > 0;
+        dt_unassigned = dt(:,end) == 0;
+        dt_ignored = dt(:,end) < 0;
         plot(dt(dt_assigned,1), dt(dt_assigned, 2), 'x', 'Color', 'green', 'MarkerSize', 8, 'LineWidth', 2); % TP
-        plot(dt(~dt_assigned,1), dt(~dt_assigned, 2), 'x', 'Color', 'red', 'MarkerSize', 8, 'LineWidth', 2); % FP
+        plot(dt(dt_unassigned,1), dt(dt_unassigned, 2), 'x', 'Color', 'red', 'MarkerSize', 8, 'LineWidth', 2); % FP
+        plot(dt(dt_ignored,1), dt(dt_ignored, 2), 'x', 'Color', 'magenta', 'MarkerSize', 8, 'LineWidth', 2); % ignored
         
         % Draw assignments
         for p = 1:size(dt, 1),
@@ -77,7 +83,8 @@ function fig = visualize_detections_as_points (I, polygon, annotations, detectio
         h(end+1) = plot([0,0], [0,0], '+', 'Color', 'yellow', 'LineWidth', 2);
         h(end+1) = plot([0,0], [0,0], 'x', 'Color', 'green', 'LineWidth', 2);
         h(end+1) = plot([0,0], [0,0], 'x', 'Color', 'red', 'LineWidth', 2);
-        legend(h, 'TP (annotated)', 'FN', 'TP (det)', 'FP');
+        h(end+1) = plot([0,0], [0,0], '+', 'Color', 'magenta', 'LineWidth', 2);
+        legend(h, 'TP (annotated)', 'FN', 'TP (det)', 'FP', 'ignore');
         
         % Numeric evaluation
         tp = sum(dt(:,end)  > 0);
