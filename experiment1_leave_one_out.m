@@ -1,15 +1,30 @@
-function experiment1_leave_one_out ()
+function experiment1_leave_one_out (varargin)
     % EXPERIMENT1_LEAVE_ONE_OUT ()
     
-    output_dir = 'experiment1-leave-one-out';
-    images_list = {};
-    acf_window_size = 30;
+    parser = inputParser();
+    parser.addParameter('output_dir', 'experiment1-leave-one-out', @ischar);
+    parser.addParameter('images_list', {}, @iscell);
+    parser.addParameter('negative_folders', {}, @iscell);
+    parser.addParameter('mix_negatives_with_positives', true, @islogical);
+    parser.addParameter('acf_window_size', 30, @isnumeric);
+    parser.parse(varargin{:});
     
-    % Training images
+    output_dir = parser.Results.output_dir;
+    images_list = parser.Results.images_list;
+    negative_folders = parser.Results.negative_folders;
+    mix_negatives_with_positives = parser.Results.mix_negatives_with_positives;
+    acf_window_size = parser.Results.acf_window_size;
+    
+    % Training images: the first seven images from Martin's dataset (v2)
     if isempty(images_list),
         dataset_dir = 'dataset-martin2';
         images_list = { '01.01.jpg', '02.02.jpg', '02.04.jpg', '05.01.jpg', '07.03.jpg', '100315_TMD_007.jpg', '100315_TMD_022.jpg'};
         images_list = cellfun(@(x) fullfile(dataset_dir, x), images_list, 'UniformOutput', false);
+    end
+    
+    % Additional cropped negatives from Kristjan's dataset
+    if isempty(negative_folders),
+        negative_folders = { 'dataset-kristjan/negatives-selected' };
     end
     
     % Create a polyp detector
@@ -38,7 +53,7 @@ function experiment1_leave_one_out ()
             acf_training_dataset_dir = fullfile(output_dir, experiment_basename, 'acf_training_dataset');
             if ~exist(acf_training_dataset_dir, 'dir'),
                 fprintf('Preparing ACF training dataset...\n');
-                vicos.AcfDetector.training_prepare_dataset(training_images, acf_training_dataset_dir);
+                vicos.AcfDetector.training_prepare_dataset(training_images, acf_training_dataset_dir, 'negative_folders', negative_folders, 'mix_negatives_with_positives', mix_negatives_with_positives);
             else
                 fprintf('ACF training dataset already exists!\n');
             end
@@ -75,10 +90,16 @@ function experiment1_leave_one_out ()
         enhance_image = false;
          
         % First, get only proposals regions
-        regions = polyp_detector.process_image(test_image, 'regions_only', true, 'cache_dir', cache_dir, 'rescale_image', rescale_image, 'enhance_image', enhance_image);
+        fig = figure('Visible', 'off');
+        regions = polyp_detector.process_image(test_image, 'regions_only', true, 'cache_dir', cache_dir, 'rescale_image', rescale_image, 'enhance_image', enhance_image, 'display_regions_as_points', fig);
+        savefig(fullfile(output_dir, sprintf('%s-reg.fig', experiment_basename)));
+        delete(fig);
         
         % Full detection pipeline
-        detections = polyp_detector.process_image(test_image, 'cache_dir', cache_dir, 'rescale_image', rescale_image, 'enhance_image', enhance_image);
+        fig = figure('Visible', 'off');
+        detections = polyp_detector.process_image(test_image, 'cache_dir', cache_dir, 'rescale_image', rescale_image, 'enhance_image', enhance_image, 'display_detections_as_points', fig);
+        savefig(fullfile(output_dir, sprintf('%s-det.fig', experiment_basename)));
+        delete(fig);
         
         fprintf(' >> %d regions, %d detections; %d annotations\n', size(regions, 1), size(detections, 1), size(annotations, 1));
         
