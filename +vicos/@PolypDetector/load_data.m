@@ -1,5 +1,5 @@
 function [ I, basename, poly, boxes, manual_annotations ] = load_data (image_filename)
-    % [ I, basename, poly, boxes, manual_annotations ] = LOAD_DATA (self, image_filename)
+    % [ I, basename, poly, boxes, manual_annotations ] = LOAD_DATA (image_filename)
     %
     % Loads an image and, if available, its accompanying polygon,
     % bounding box, and point-wise annotations.
@@ -13,7 +13,8 @@ function [ I, basename, poly, boxes, manual_annotations ] = load_data (image_fil
     %    subsequent processing functions for data caching
     %  - poly: polygon that describes ROI (Nx2 vector of points)
     %  - boxes: manually-annotated bounding boxes (Mx4 matrix, with each
-    %    row specifying a bounding box: [ x, y, w, h ])
+    %    row specifying a bounding box: [ x, y, w, h ]). Any annotations
+    %    with width or height equal zero are filterd out.
     %  - manual_annotations: a cell array of point-wise manual
     %    annotations (each row of cell array contains a string denoting the
     %    annotator's name, and a Px2 vector of annotated points)
@@ -39,6 +40,11 @@ function [ I, basename, poly, boxes, manual_annotations ] = load_data (image_fil
         boxes_file = fullfile(pathname, [ basename, '.bbox' ]);
         if exist(boxes_file, 'file'),
             boxes = load(boxes_file);
+            
+            % Filter out invalid boxes (the ones with width or height equal
+            % to zero)
+            invalid_mask = any(boxes(:,3:4) == 0, 2);
+            boxes(invalid_mask,:) = [];
         else
             boxes = [];
         end
