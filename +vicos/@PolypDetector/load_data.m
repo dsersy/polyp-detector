@@ -11,10 +11,12 @@ function [ I, basename, poly, boxes, manual_annotations ] = load_data (image_fil
     %  - I: loaded image
     %  - basename: image's basename, which can be passed to
     %    subsequent processing functions for data caching
-    %  - poly: polygon that describes ROI
-    %  - boxes: manually-annotated bounding boxes
+    %  - poly: polygon that describes ROI (Nx2 vector of points)
+    %  - boxes: manually-annotated bounding boxes (Mx4 matrix, with each
+    %    row specifying a bounding box: [ x, y, w, h ])
     %  - manual_annotations: a cell array of point-wise manual
-    %    annotations
+    %    annotations (each row of cell array contains a string denoting the
+    %    annotator's name, and a Px2 vector of annotated points)
     
     % Get path and basename
     [ pathname, basename, ~ ] = fileparts(image_filename);
