@@ -228,6 +228,8 @@ function experiment1_leave_one_out (varargin)
     
     %% Display results again (for copy & paste purposes)
     fprintf('\n\n');
+    
+    % Format 1
     table_line = strjoin({'Image name', 'Num annotations', 'Distance threshold', 'Proposal precision', 'Proposal recall', 'Num proposals', 'Proposal ratio', 'Detection precision', 'Detection recall', 'Num detections', 'Detection ratio\n'}, '\t');
     fprintf(table_line);
     for i = 1:numel(results),
@@ -235,6 +237,28 @@ function experiment1_leave_one_out (varargin)
         fprintf(table_line, results(i).image_name, results(i).num_annotations, results(i).distance_threshold, ...
             100*results(i).proposal_precision, 100*results(i).proposal_recall, results(i).proposal_number, 100*results(i).proposal_number/results(i).num_annotations, ...
             100*results(i).detection_precision, 100*results(i).detection_recall, results(i).detection_number, 100*results(i).detection_number/results(i).num_annotations);
+    end
+    fprintf('\n\n');
+    
+    % Format 2
+    for i = 1:numel(results),
+        % Header
+        table_line = strjoin({'%s', 'Number', 'Ratio', 'Precision', 'Recall\n'}, '\t');
+        fprintf(table_line, results(i).image_name);
+    
+        % Ground truth
+        table_line = strjoin({'%s', '%d', '', '', '\n' }, '\t');
+        fprintf(table_line, 'ground-truth', results(i).num_annotations);
+        
+        % Proposals
+        table_line = strjoin({'%s', '%d', '%.2f %%', '%.2f %%', '%.2f %%\n' }, '\t');
+        fprintf(table_line, 'proposal', results(i).proposal_number, 100*results(i).proposal_number/results(i).num_annotations, 100*results(i).proposal_precision, 100*results(i).proposal_recall);
+        
+        % Detections
+        table_line = strjoin({'%s', '%d', '%.2f %%', '%.2f %%', '%.2f %%\n' }, '\t');
+        fprintf(table_line, 'detection', results(i).detection_number, 100*results(i).detection_number/results(i).num_annotations, 100*results(i).detection_precision, 100*results(i).detection_recall);
+        
+        fprintf('\n\n');
     end
     fprintf('\n\n');
 end
