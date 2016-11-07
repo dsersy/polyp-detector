@@ -39,6 +39,7 @@ function training_prepare_dataset (training_images, output_path, varargin)
     parser.addParameter('ignore_masked_boxes', true, @islogical);
     parser.addParameter('mix_negatives_with_positives', false, @islogical);
     parser.addParameter('force_copy', false, @islogical);
+    parser.addParameter('enhance_images', false, @islogical);
     parser.parse(varargin{:});
 
     box_scale = parser.Results.box_scale;
@@ -47,6 +48,7 @@ function training_prepare_dataset (training_images, output_path, varargin)
     ignore_masked_boxes = parser.Results.ignore_masked_boxes;
     mix_negatives_with_positives = parser.Results.mix_negatives_with_positives;
     force_copy = parser.Results.force_copy;
+    enhance_images = parser.Results.enhance_images;
     
     %% Create output dir
     assert(exist(output_path, 'dir') == 0, 'Output directory already exists!');
@@ -114,11 +116,22 @@ function training_prepare_dataset (training_images, output_path, varargin)
         bbGt('bbSave', annotations, output_annotation);
         
         %% Save/copy image
-        if mask_images,
-            % Save a masked copy
+        if mask_images || enhance_images,
+            Io = I;
+            
+            % Enhance?
+            if enhance_images,
+                Io = vicos.utils.adaptive_histogram_equalization(Io);
+            end
+            
+            % Mask?
+            if mask_images,
+                Io = vicos.PolypDetector.mask_image_with_polygon(Io, poly);
+            end
+            
+            % Save the modified copy
             output_image = fullfile(output_path, 'train', 'pos', [ basename, '.jpg' ]);
-            Im = vicos.PolypDetector.mask_image_with_polygon(I, poly);
-            imwrite(Im, output_image);
+            imwrite(Io, output_image);
         else
             % Copy/link file
             output_image = fullfile(output_path, 'train', 'pos', [ basename, ext ]);
