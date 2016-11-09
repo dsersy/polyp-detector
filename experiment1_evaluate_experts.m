@@ -54,11 +54,12 @@ function experiment1_evaluate_experts (varargin)
             expert_precision = tp / (tp + fp);
             expert_recall = tp / (tp + fn);
             expert_number = tp + fp;
+            expert_f_score = 2*(expert_precision*expert_recall)/(expert_precision + expert_recall);
         
             % Display header
             if m == 1,
                 % Print header
-                table_line = strjoin({'%s', 'Number', 'Ratio', 'Precision', 'Recall\n'}, '\t');
+                table_line = strjoin({'%s', 'Number', 'Ratio', 'Precision', 'Recall', 'F-score \n'}, '\t');
                 fprintf(table_line, experiment_basename);
 
                 % Print ground truth
@@ -67,8 +68,8 @@ function experiment1_evaluate_experts (varargin)
             end
             
             % Display output            
-            table_line = strjoin({'%s', '%d', '%.2f %%', '%.2f %%', '%.2f %%\n' }, '\t');
-            fprintf(table_line, expert_name, expert_number, 100*expert_number/num_annotations, 100*expert_precision, 100*expert_recall);
+            table_line = strjoin({'%s', '%d', '%.2f %%', '%.2f %%', '%.2f %%', '%.2f %%\n' }, '\t');
+            fprintf(table_line, expert_name, expert_number, 100*expert_number/num_annotations, 100*expert_precision, 100*expert_recall, 100*expert_f_score);
         end
         
         fprintf('\n\n');

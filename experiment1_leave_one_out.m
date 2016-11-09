@@ -178,8 +178,9 @@ function experiment1_leave_one_out (varargin)
         num_annotations = tp + fn;
         proposal_precision = tp / (tp + fp);
         proposal_recall = tp / (tp + fn);
+        proposal_f_score = 2*(proposal_precision*proposal_recall)/(proposal_precision + proposal_recall);
         proposal_number = tp + fp;
-        
+
         fprintf('proposals; precision: %.2f %%, recall: %.2f %%, number detected: %d, number annotated: %d, ratio: %.2f %%\n', 100*proposal_precision, 100*proposal_recall, proposal_number, num_annotations, 100*proposal_number/num_annotations);
         
         % Evaluate final detections
@@ -196,6 +197,7 @@ function experiment1_leave_one_out (varargin)
         detection_precision = tp / (tp + fp);
         detection_recall = tp / (tp + fn);
         detection_number = tp + fp;
+        detection_f_score = 2*(detection_precision*detection_recall)/(detection_precision + detection_recall);
         
         fprintf('detections; precision: %.2f %%, recall: %.2f %%, number detected: %d, number annotated: %d, ratio: %.2f %%\n', 100*detection_precision, 100*detection_recall, detection_number, num_annotations, 100*detection_number/num_annotations);
         
@@ -205,9 +207,11 @@ function experiment1_leave_one_out (varargin)
         results(i).distance_threshold = distance_threshold;
         results(i).proposal_precision = proposal_precision;
         results(i).proposal_recall = proposal_recall;
+        results(i).proposal_f_score = proposal_f_score;
         results(i).proposal_number = proposal_number;
         results(i).detection_precision = detection_precision;
         results(i).detection_recall = detection_recall;
+        results(i).detection_f_score = detection_f_score;
         results(i).detection_number = detection_number;
         
         %% Visualization (optional)
@@ -243,20 +247,20 @@ function experiment1_leave_one_out (varargin)
     % Format 2
     for i = 1:numel(results),
         % Header
-        table_line = strjoin({'%s', 'Number', 'Ratio', 'Precision', 'Recall\n'}, '\t');
+        table_line = strjoin({'%s', 'Number', 'Ratio', 'Precision', 'Recall', 'F-score\n'}, '\t');
         fprintf(table_line, results(i).image_name);
     
         % Ground truth
-        table_line = strjoin({'%s', '%d', '', '', '\n' }, '\t');
+        table_line = strjoin({'%s', '%d', '', '', '', '\n' }, '\t');
         fprintf(table_line, 'ground-truth', results(i).num_annotations);
         
         % Proposals
-        table_line = strjoin({'%s', '%d', '%.2f %%', '%.2f %%', '%.2f %%\n' }, '\t');
-        fprintf(table_line, 'proposal', results(i).proposal_number, 100*results(i).proposal_number/results(i).num_annotations, 100*results(i).proposal_precision, 100*results(i).proposal_recall);
+        %table_line = strjoin({'%s', '%d', '%.2f %%', '%.2f %%', '%.2f %%', '%.2f %%\n' }, '\t');
+        %fprintf(table_line, 'proposal', results(i).proposal_number, 100*results(i).proposal_number/results(i).num_annotations, 100*results(i).proposal_precision, 100*results(i).proposal_recall, 100*results(i).proposal_f_score);
         
         % Detections
-        table_line = strjoin({'%s', '%d', '%.2f %%', '%.2f %%', '%.2f %%\n' }, '\t');
-        fprintf(table_line, 'detection', results(i).detection_number, 100*results(i).detection_number/results(i).num_annotations, 100*results(i).detection_precision, 100*results(i).detection_recall);
+        table_line = strjoin({'%s', '%d', '%.2f %%', '%.2f %%', '%.2f %%', '%.2f %%\n' }, '\t');
+        fprintf(table_line, 'detection', results(i).detection_number, 100*results(i).detection_number/results(i).num_annotations, 100*results(i).detection_precision, 100*results(i).detection_recall, 100*results(i).detection_f_score);
         
         fprintf('\n\n');
     end
