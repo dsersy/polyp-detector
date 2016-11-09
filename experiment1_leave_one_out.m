@@ -217,15 +217,15 @@ function experiment1_leave_one_out (varargin)
         %% Visualization (optional)
         if visualize_proposals,
             fig = figure('Visible', 'off');
-            vicos.PolypDetector.visualize_detections_as_points(I, polygon, box_centers, regions, 'fig', fig, 'distance_threshold', distance_threshold, 'prefix', sprintf('%s: ACF proposals', experiment_basename));
+            vicos.PolypDetector.visualize_detections_as_points(I, polygon, { 'Box centers', box_centers }, regions, 'fig', fig, 'distance_threshold', distance_threshold, 'prefix', sprintf('%s: ACF proposals', experiment_basename));
             savefig(fig, fullfile(output_dir, sprintf('%s-proposals.fig', experiment_basename)), 'compact');
             delete(fig);
         end
         
         if visualize_detections,
             fig = figure('Visible', 'off');
-            vicos.PolypDetector.visualize_detections_as_points(I, polygon, box_centers, detections, 'fig', fig, 'distance_threshold', distance_threshold, 'prefix', sprintf('%s: final detections', experiment_basename));
-            savefig(fig, fullfile(output_dir, sprintf('%s-proposals.fig', experiment_basename)), 'compact');
+            vicos.PolypDetector.visualize_detections_as_points(I, polygon, { 'Box centers', box_centers }, detections, 'fig', fig, 'distance_threshold', distance_threshold, 'prefix', sprintf('%s: final detections', experiment_basename));
+            savefig(fig, fullfile(output_dir, sprintf('%s-detection.fig', experiment_basename)), 'compact');
             delete(fig);
         end
     end
@@ -255,8 +255,8 @@ function experiment1_leave_one_out (varargin)
         fprintf(table_line, 'ground-truth', results(i).num_annotations);
         
         % Proposals
-        %table_line = strjoin({'%s', '%d', '%.2f %%', '%.2f %%', '%.2f %%', '%.2f %%\n' }, '\t');
-        %fprintf(table_line, 'proposal', results(i).proposal_number, 100*results(i).proposal_number/results(i).num_annotations, 100*results(i).proposal_precision, 100*results(i).proposal_recall, 100*results(i).proposal_f_score);
+        table_line = strjoin({'%s', '%d', '%.2f %%', '%.2f %%', '%.2f %%', '%.2f %%\n' }, '\t');
+        fprintf(table_line, 'proposal', results(i).proposal_number, 100*results(i).proposal_number/results(i).num_annotations, 100*results(i).proposal_precision, 100*results(i).proposal_recall, 100*results(i).proposal_f_score);
         
         % Detections
         table_line = strjoin({'%s', '%d', '%.2f %%', '%.2f %%', '%.2f %%', '%.2f %%\n' }, '\t');
