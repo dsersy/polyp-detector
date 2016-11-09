@@ -59,8 +59,8 @@ function experiment1_evaluate_experts (varargin)
             % Display header
             if m == 1,
                 % Print header
-                table_line = strjoin({'%s', 'Number', 'Ratio', 'Precision', 'Recall', 'F-score \n'}, '\t');
-                fprintf(table_line, experiment_basename);
+                table_line = strjoin({'%s (%.0f px)', 'Number', 'Ratio', 'Precision', 'Recall', 'F-score \n'}, '\t');
+                fprintf(table_line, experiment_basename, distance_threshold);
 
                 % Print ground truth
                 table_line = strjoin({'%s', '%d', '', '', '\n' }, '\t');

@@ -247,8 +247,8 @@ function experiment1_leave_one_out (varargin)
     % Format 2
     for i = 1:numel(results),
         % Header
-        table_line = strjoin({'%s', 'Number', 'Ratio', 'Precision', 'Recall', 'F-score\n'}, '\t');
-        fprintf(table_line, results(i).image_name);
+        table_line = strjoin({'%s (%.0f px)', 'Number', 'Ratio', 'Precision', 'Recall', 'F-score\n'}, '\t');
+        fprintf(table_line, results(i).image_name, distance_threshold);
     
         % Ground truth
         table_line = strjoin({'%s', '%d', '', '', '', '\n' }, '\t');
