@@ -156,8 +156,14 @@ function training_prepare_dataset (training_images, output_path, varargin)
                 basename = sprintf('negative-%04d%s', num_neg_files);
                 output_image = fullfile(output_path, 'train', 'pos', [ basename, ext ]);
                 output_annotation = fullfile(output_path, 'train', 'posGT', [ basename, '.txt' ]);
-                        
-                copy_or_link_file(input_image, output_image, force_copy);
+
+                if enhance_images,
+                    Ii = imread(input_image);
+                    Io = vicos.utils.adaptive_histogram_equalization(Ii);
+                    imwrite(Io, output_image);
+                else
+                    copy_or_link_file(input_image, output_image, force_copy);
+                end
                 
                 annotations = bbGt('create', 0);
                 bbGt('bbSave', annotations, output_annotation);
@@ -185,7 +191,15 @@ function training_prepare_dataset (training_images, output_path, varargin)
                     [ ~, ~, ext ] = fileparts(files(f).name);
                     input_image = fullfile( negative_folder, files(f).name );
                     output_image = fullfile( negative_output_dir, sprintf('%04d%s', num_neg_files, ext) );
-                    copy_or_link_file(input_image, output_image, force_copy);
+                    
+                    if enhance_images,
+                        Ii = imread(input_image);
+                        Io = vicos.utils.adaptive_histogram_equalization(Ii);
+                        imwrite(Io, output_image);
+                    else
+                        copy_or_link_file(input_image, output_image, force_copy);
+                    end
+                    
                     num_neg_files = num_neg_files + 1;
                 end
             end
