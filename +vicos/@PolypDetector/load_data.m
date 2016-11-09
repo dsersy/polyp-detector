@@ -1,4 +1,4 @@
-function [ I, basename, poly, boxes, manual_annotations ] = load_data (image_filename)
+function [ I, basename, poly, boxes, manual_annotations ] = load_data (image_filename, varargin)
     % [ I, basename, poly, boxes, manual_annotations ] = LOAD_DATA (image_filename)
     %
     % Loads an image and, if available, its accompanying polygon,
@@ -6,6 +6,9 @@ function [ I, basename, poly, boxes, manual_annotations ] = load_data (image_fil
     %
     % Input:
     %  - image_filename: input image filename
+    %  - varargin: optional key/value pairs
+    %     - filter_boxes: filter out boxes that have width or height equal
+    %       to zero (default: true)
     %
     % Output:
     %  - I: loaded image
@@ -19,6 +22,13 @@ function [ I, basename, poly, boxes, manual_annotations ] = load_data (image_fil
     %    annotations (each row of cell array contains a string denoting the
     %    annotator's name, and a Px2 vector of annotated points)
     
+    % Input arguments
+    parser = inputParser();
+    parser.addParameter('filter_boxes', true, @islogical);
+    parser.parse(varargin{:});
+    
+    filter_boxes = parser.Results.filter_boxes;
+    
     % Get path and basename
     [ pathname, basename, ~ ] = fileparts(image_filename);
     
@@ -31,7 +41,7 @@ function [ I, basename, poly, boxes, manual_annotations ] = load_data (image_fil
         if exist(poly_file, 'file'),
             poly = load(poly_file);
         else
-            poly = [];
+            poly = zeros(0, 2);
         end
     end
     
@@ -41,12 +51,13 @@ function [ I, basename, poly, boxes, manual_annotations ] = load_data (image_fil
         if exist(boxes_file, 'file'),
             boxes = load(boxes_file);
             
-            % Filter out invalid boxes (the ones with width or height equal
-            % to zero)
-            invalid_mask = any(boxes(:,3:4) == 0, 2);
-            boxes(invalid_mask,:) = [];
+            % Filter out invalid boxes
+            if filter_boxes,
+                invalid_mask = any(boxes(:,3:4) == 0, 2);
+                boxes(invalid_mask,:) = [];
+            end
         else
-            boxes = [];
+            boxes = zeros(0, 4);
         end
     end
     
