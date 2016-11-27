@@ -1,29 +1,22 @@
 #!/bin/bash
 
-MATLABDIR=${MATLABDIR:-/usr/local/MATLAB/R2015b}
+# Matlab directory; set only if not already set
+MATLABDIR=${MATLABDIR:-/usr/local/MATLAB/R2016b}
 
-EXTERNAL_ROOT=$(pwd)
-
+# Get the project's root directory (i.e., the location of this script)
+ROOT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 
 # Quit on error
 set -e
-
 
 ########################################################################
 #                     Build CNN Feature Extractor                      #
 ########################################################################
 echo "Building CNN Feature extractor dependencies..."
-pushd cnn-feature-extractor/external
-
-./build_dependencies.sh
-
-popd
-
+"${ROOT_DIR}/external/cnn-feature-extractor/build_all.sh"
 
 ########################################################################
 #                           Build LIBLINEAR                            #
 ########################################################################
 echo "Building LIBLINEAR..."
-pushd liblinear/matlab
-make MATLABDIR=$MATLABDIR
-popd
+make MATLABDIR="$MATLABDIR" -C "${ROOT_DIR}/external/liblinear/matlab"
