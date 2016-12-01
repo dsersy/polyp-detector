@@ -1,14 +1,20 @@
 #!/bin/sh
 
-# Matlab
+# Matlab directory; set only if not already set
 MATLABDIR=${MATLABDIR:-/usr/local/MATLAB/R2016b}
 
-# Caffe
-CAFFE_LIB=$(pwd)/external/cnn-feature-extractor/external/caffe-bin/lib/
+# Get the project's root directory (i.e., the location of this script)
+ROOT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 
-# Set path
+# Quit on error
+set -e
+
+
+# Caffe
+CAFFE_LIB="${ROOT_DIR}/external/cnn-feature-extractor/external/caffe-bin/lib"
 export LD_LIBRARY_PATH=${LD_LIBRARY_PATH}:${CAFFE_LIB}
 
+
 # Run MATLAB
-${MATLABDIR}/bin/matlab
+${MATLABDIR}/bin/matlab -r "run ${ROOT_DIR}/startup.m"
 
