@@ -47,6 +47,9 @@ classdef AnnotationViewer < handle
             set(self.figure_main, 'WindowKeyPressFcn', @(fig_obj, event_data) self.window_key_press(event_data));
             set(self.figure_main, 'WindowButtonDownFcn', @(fig_obj, event_data) self.window_mouse_button(event_data));
             
+            % Turn off the image size warning
+            warning('off', 'Images:initSize:adjustingMag');
+            
             fprintf('Annotation viewer ready; press "h" for help.\n');
         end
         
