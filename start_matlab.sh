@@ -1,7 +1,7 @@
 #!/bin/sh
 
 # Matlab
-MATLABDIR=${MATLABDIR:-/usr/local/MATLAB/R2015b}
+MATLABDIR=${MATLABDIR:-/usr/local/MATLAB/R2016b}
 
 # Caffe
 CAFFE_LIB=$(pwd)/external/cnn-feature-extractor/external/caffe-bin/lib/
