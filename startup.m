@@ -13,7 +13,11 @@ function startup ()
 
     %% lapjv
     addpath( fullfile(root_dir, 'external', 'lapjv') );
-    
+
     %% CNN feature extractor
     run( fullfile(root_dir, 'external', 'cnn-feature-extractor', 'startup.m' ) );
+
+    %% Turn off warnings
+    % Image size warning
+    warning('off', 'Images:initSize:adjustingMag');
 end
