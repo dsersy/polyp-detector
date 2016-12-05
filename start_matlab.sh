@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 
 # Matlab directory; set only if not already set
 MATLABDIR=${MATLABDIR:-/usr/local/MATLAB/R2016b}
