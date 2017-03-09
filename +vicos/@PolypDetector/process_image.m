@@ -75,28 +75,28 @@ function detections = process_image (self, image_filename, varargin)
     
     % Figures (because we allow figure handle to be passed via display_
     % parameters)
-    if ishandle(display_regions),
+    if ishandle(display_regions)
         display_regions_fig = display_regions;
         display_regions = true;
     else
         display_regions_fig = [];
     end
     
-    if ishandle(display_regions_as_points),
+    if ishandle(display_regions_as_points)
         display_regions_as_points_fig = display_regions_as_points;
         display_regions_as_points = true;
     else
         display_regions_as_points_fig = [];
     end
     
-    if ishandle(display_detections),
+    if ishandle(display_detections)
         display_detections_fig = display_detections;
         display_detections = true;
     else
         display_detections_fig = [];
     end
     
-    if ishandle(display_detections_as_points),
+    if ishandle(display_detections_as_points)
         display_detections_as_points_fig = display_detections_as_points;
         display_detections_as_points = true;
     else
@@ -109,7 +109,7 @@ function detections = process_image (self, image_filename, varargin)
     t_total = tic();
     
     % Enhance the image
-    if enhance_image,
+    if enhance_image
         I = vicos.utils.adaptive_histogram_equalization(Iorig, 'NumTiles', [ 16, 16 ]);
     else
         I = Iorig;
@@ -139,7 +139,7 @@ function detections = process_image (self, image_filename, varargin)
     cache_basename = self.construct_cache_filename(basename, enhance_image, rescale_image, self.acf_nms_overlap);
     
     %% Run ACF detector
-    if ~isempty(cache_dir),
+    if ~isempty(cache_dir)
         acf_cache_file = fullfile(cache_dir, 'acf-cache', [ cache_basename, '.mat' ]);
     else
         acf_cache_file = '';
@@ -157,25 +157,25 @@ function detections = process_image (self, image_filename, varargin)
     regions(:,1) = regions(:,1) + xmin;
     regions(:,2) = regions(:,2) + ymin;
 
-    if display_timings,
+    if display_timings
         fprintf(' > Timings: region proposal: %f seconds\n', toc(t));
     end
     
     % Display ACF regions
-    if display_regions,
+    if display_regions
         self.visualize_detections_as_boxes(Iorig, poly, annotations, regions, 'fig', display_regions_fig, 'multiple_matches', true, 'overlap_threshold', overlap_threshold, 'prefix', sprintf('%s: ACF', basename));
     end
     
     % Display ACF regions as points
-    if display_regions_as_points,
-        if isempty(annotations_pts) && ~isempty(annotations),
+    if display_regions_as_points
+        if isempty(annotations_pts) && ~isempty(annotations)
             annotations_pts = { 'Annotated box centers', annotations(:,1:2) + annotations(:,3:4)/2 };
         end
         
         self.visualize_detections_as_points(Iorig, poly, annotations_pts, regions, 'fig', display_regions_as_points_fig, 'distance_threshold', distance_threshold, 'prefix', sprintf('%s: ACF', basename));
     end
     
-    if regions_only,
+    if regions_only
         detections = regions;
         return;
     end
@@ -186,7 +186,7 @@ function detections = process_image (self, image_filename, varargin)
     
     %% Extract CNN features from detected regions
     % Make sure to extract from original image, and not masked one!
-    if ~isempty(cache_dir),
+    if ~isempty(cache_dir)
         cnn_cache_file = fullfile(cache_dir, 'cnn-cache', [ cache_basename, '.mat' ]);
     else
         cnn_cache_file = '';
@@ -197,7 +197,7 @@ function detections = process_image (self, image_filename, varargin)
 
     features = self.extract_features_from_regions(I, regions, cnn_cache_file);
     
-    if display_timings,
+    if display_timings
         fprintf(' > Timings: CNN feature extraction: %f seconds\n', toc(t));
     end
     
@@ -212,7 +212,7 @@ function detections = process_image (self, image_filename, varargin)
     positive_regions = regions(positive_mask,1:4);
     positive_scores = scores(positive_mask);
     
-    if display_timings,
+    if display_timings
         fprintf(' > Timings: SVM: %f seconds\n', toc(t));
     end
     
@@ -226,19 +226,19 @@ function detections = process_image (self, image_filename, varargin)
         'overlap', self.svm_nms_overlap, ...
         'ovrDnm', 'union');
     
-    if display_timings,
+    if display_timings
         fprintf(' > Timings: NMS: %f seconds\n', toc(t));
         fprintf(' >> Timings: total: %f seconds\n', toc(t_total));
     end
 
     % Display detections
-    if display_detections,
+    if display_detections
         self.visualize_detections_as_boxes(Iorig, poly, annotations, detections, 'fig', display_detections_fig, 'multiple_matches', false, 'overlap_threshold', overlap_threshold, 'prefix', sprintf('%s: Final', basename));
     end
     
     % Display detection points
-    if display_detections_as_points,
-        if isempty(annotations_pts) && ~isempty(annotations),
+    if display_detections_as_points
+        if isempty(annotations_pts) && ~isempty(annotations)
             annotations_pts = { 'Annotated box centers', annotations(:,1:2) + annotations(:,3:4)/2 };
         end
         

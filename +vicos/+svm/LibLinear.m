@@ -60,7 +60,7 @@ classdef LibLinear < vicos.svm.Classifier
     methods (Access = public)
         function identifier = get_identifier (self)
             identifier = 'liblinear';
-            if self.weight_samples,
+            if self.weight_samples
                 identifier = [ identifier, '_weighted' ];
             end
         end
@@ -71,7 +71,7 @@ classdef LibLinear < vicos.svm.Classifier
             assert(all(ismember(labels, [ 1, -1 ])), 'labels must be -1/+1!');
             assert(size(features, 2) == numel(labels), 'features must be DxN matrix!');
             
-            if iscolumn(labels),
+            if iscolumn(labels)
                 labels = labels';
             end
             
@@ -81,7 +81,7 @@ classdef LibLinear < vicos.svm.Classifier
             liblinear_opts = '-q -s 2';
             
             % Sample weighting
-            if self.weight_samples,
+            if self.weight_samples
                 num_pos = sum(labels ==  1);
                 num_neg = sum(labels == -1);
                 
@@ -92,12 +92,12 @@ classdef LibLinear < vicos.svm.Classifier
             end
             
             % Bias
-            if ~isempty(self.bias),
+            if ~isempty(self.bias)
                 liblinear_opts = [ liblinear_opts, sprintf(' -B %f ', self.bias) ];
             end
             
             % C; if not provided, estimate via cross-validation
-            if isempty(self.C),
+            if isempty(self.C)
                 best = train(labels', sparse(double(features)), [ liblinear_opts, ' -C' ], 'col');
                 optC = best(1);
             else

@@ -3,9 +3,9 @@ function load_classifier (self, filename)
     %
     % Loads classifier from file
     
-    if ~exist('filename', 'var') || isempty(filename),
+    if ~exist('filename', 'var') || isempty(filename)
         [ filename, pathname ] = uigetfile('*.mat', 'Pick a classifier file');
-        if isequal(filename, 0),
+        if isequal(filename, 0)
             return;
         end
         filename = fullfile(pathname, filename);

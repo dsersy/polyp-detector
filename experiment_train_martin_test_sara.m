@@ -1,13 +1,13 @@
 function experiment_train_martin_test_sara (training_dataset, detector)
-    if ~exist('detector', 'var'),
+    if ~exist('detector', 'var')
         detector = [];
     end
     
     distance_threshold = 32;
     
     % Training dataset selection
-    switch training_dataset,
-        case 'martin',
+    switch training_dataset
+        case 'martin'
             training_images = {
                 'dataset-martin/01.01.jpg', ...
                 'dataset-martin/02.02.jpg', ...
@@ -18,7 +18,7 @@ function experiment_train_martin_test_sara (training_dataset, detector)
                 'dataset-martin/100315_TMD_022.jpg' };
 
             results_dir = 'results-martin-sara';
-        case 'martin2',
+        case 'martin2'
             training_images = {
                 'dataset-martin2/01.01.jpg', ...
                 'dataset-martin2/02.02.jpg', ...
@@ -35,14 +35,14 @@ function experiment_train_martin_test_sara (training_dataset, detector)
                 'dataset-martin2/121113_TMD_018.jpg' };
             
             results_dir = 'results-martin2-sara';    
-        otherwise,
+        otherwise
             error('Invalid training dataset: %s!', training_dataset);
     end
     
     cache_dir = fullfile(results_dir, 'cache');
     
     % Create polyp detector
-    if isempty(detector),
+    if isempty(detector)
         detector = vicos.PolypDetector();
     end
     
@@ -52,7 +52,7 @@ function experiment_train_martin_test_sara (training_dataset, detector)
     classifier_identifier = detector.construct_classifier_identifier();
     
     classifier_file = fullfile(results_dir, sprintf('classifier-%s.mat', classifier_identifier));
-    if ~exist(classifier_file, 'file'),
+    if ~exist(classifier_file, 'file')
         detector.train_svm_classifier('cache_dir', cache_dir, 'train_images', training_images);
         classifier = detector.svm_classifier; %#ok<NASGU>
         save(classifier_file, '-v7.3', 'classifier');
@@ -67,7 +67,7 @@ function experiment_train_martin_test_sara (training_dataset, detector)
 
     % Process all images
     all_results = cell(numel(test_images), 1);
-    for i = 1:numel(test_images),
+    for i = 1:numel(test_images)
         [ I, basename, polygon, ~, manual_annotations ] = detector.load_data(test_images{i});
 
         results_file = fullfile(results_dir, classifier_identifier, [ basename, '.mat' ]);
@@ -103,7 +103,7 @@ function experiment_train_martin_test_sara (training_dataset, detector)
     
     %% Display results       
     fprintf('image name\tresolution\tnum annotated\tnum regions\tprecision\trecall\tportion\tnumdetections\tprecision\trecall\tportion\n');
-    for i = 1:numel(all_results),
+    for i = 1:numel(all_results)
         results = all_results{i};
         
         resolution_string = sprintf('%dx%d', results.image_size(2), results.image_size(1));

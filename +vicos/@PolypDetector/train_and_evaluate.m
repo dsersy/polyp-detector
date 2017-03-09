@@ -27,7 +27,7 @@ function train_and_evaluate (self, result_dir, varargin)
     classifier_identifier = self.construct_classifier_identifier();
     
     classifier_file = fullfile(result_dir, sprintf('classifier-%s.mat', classifier_identifier));
-    if exist(classifier_file, 'file'),
+    if exist(classifier_file, 'file')
         % Load from file
         tmp = load(classifier_file);
         self.svm_classifier = tmp.classifier;
@@ -58,7 +58,7 @@ function train_and_evaluate (self, result_dir, varargin)
         'num_annotated', 0, ...
         'num_detected', 0), 1, numel(test_images));
     
-    for i = 1:numel(test_images),
+    for i = 1:numel(test_images)
         test_image = test_images{i};
         
         fprintf('Processing test image #%d/%d: %s\n', i, numel(test_images), test_image);
@@ -68,7 +68,7 @@ function train_and_evaluate (self, result_dir, varargin)
         
         % Try loading result from cache
         results_file = fullfile(result_dir, classifier_identifier, [ basename, '.mat' ]);
-        if exist(results_file, 'file'),
+        if exist(results_file, 'file')
             all_results(i) = load(results_file);
             continue;
         end
@@ -116,7 +116,7 @@ function train_and_evaluate (self, result_dir, varargin)
     % Display results
     fprintf('\n\n');
     fprintf('image_name\trecall\tprecision\trelative\n');
-    for i = 1:numel(all_results),
+    for i = 1:numel(all_results)
         fprintf('%s\t%3.2f\t%3.2f\t%3.2f\n', all_results(i).image_name, all_results(i).recall, all_results(i).precision, 100*all_results(i).num_detected/all_results(i).num_annotated);
     end
     fprintf('\n');

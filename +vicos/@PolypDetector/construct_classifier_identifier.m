@@ -16,7 +16,7 @@ function identifier = construct_classifier_identifier (self)
     identifier = classifier.get_identifier();
     
     % Enhanced image or not
-    if self.enhance_image,
+    if self.enhance_image
         identifier = [ identifier, sprintf('-clahe') ];
     end
     
@@ -24,7 +24,7 @@ function identifier = construct_classifier_identifier (self)
     identifier = [ identifier, sprintf('-acf_nms_%g-pos_%g-neg_%g', self.acf_nms_overlap, self.training_positive_overlap, self.training_negative_overlap) ];
     
     % L2 normalization flag
-    if self.l2_normalized_features,
+    if self.l2_normalized_features
         identifier = [ identifier, '-norm_l2' ];
     end
 end

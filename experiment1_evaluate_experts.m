@@ -14,12 +14,12 @@ function experiment1_evaluate_experts (varargin)
     images_list = parser.Results.images_list;
     use_fallback_annotations = parser.Results.use_fallback_annotations;
     
-    if isempty(images_list),
+    if isempty(images_list)
         % The first seven images from Martin's dataset (v2)
         images_list = { '01.01.jpg', '02.02.jpg', '02.04.jpg', '05.01.jpg', '07.03.jpg', '100315_TMD_007.jpg', '100315_TMD_022.jpg' };
     end
     
-    for i = 1:numel(images_list),
+    for i = 1:numel(images_list)
         image_name = images_list{i};
         
         %fprintf('*** Image #%d/%d: %s ***\n', i, numel(images_list), image_name);
@@ -29,8 +29,8 @@ function experiment1_evaluate_experts (varargin)
         
         % If we did not get any manual annotations, try getting them from
         % Martin's dataset v1
-        if isempty(expert_annotations),
-            if ~use_fallback_annotations,
+        if isempty(expert_annotations)
+            if ~use_fallback_annotations
                 error('No manual-count annotations found!');
             else
                 [ ~, ~, ~, ~, expert_annotations ] = vicos.PolypDetector.load_data(fullfile('dataset-martin', image_name));
@@ -52,7 +52,7 @@ function experiment1_evaluate_experts (varargin)
         mask = poly2mask(polygon(:,1), polygon(:,2), size(I, 1), size(I,2));
         
         % Evaluate each expert
-        for m = 1:size(expert_annotations, 1),
+        for m = 1:size(expert_annotations, 1)
             expert_name = expert_annotations{m, 1};
             expert_pts  = expert_annotations{m, 2};
             
@@ -73,14 +73,14 @@ function experiment1_evaluate_experts (varargin)
             expert_f_score = 2*(expert_precision*expert_recall)/(expert_precision + expert_recall);
         
             % Display header
-            if m == 1,
+            if m == 1
                 % Print header
                 table_line = strjoin({'%s (%.0f px)', 'Number', 'Ratio', 'Precision', 'Recall', 'F-score \n'}, '\t');
                 fprintf(table_line, experiment_basename, distance_threshold);
 
                 % Print ground truth
                 table_line = strjoin({'%s', '%d', '', '', '\n' }, '\t');
-                fprintf(table_line, 'ground-truth', num_annotations);
+                fprintf(table_line, 'ground-truth', num_annotations); %#ok<CTPCT>
             end
             
             % Display output            

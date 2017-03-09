@@ -54,23 +54,23 @@ function experiment1_leave_one_out (varargin)
     warning('off', 'images:initSize:adjustingMag');
 
     % Output directory
-    if isempty(output_dir),
+    if isempty(output_dir)
         output_dir = 'experiment1-leave-one-out';
         
-        if enhance_images,
+        if enhance_images
             output_dir = [ output_dir, '_enhance' ];
         end 
     end
     
     % Training images: the first seven images from Martin's dataset (v2)
-    if isempty(images_list),
+    if isempty(images_list)
         dataset_dir = 'dataset-martin2';
         images_list = { '01.01.jpg', '02.02.jpg', '02.04.jpg', '05.01.jpg', '07.03.jpg', '100315_TMD_007.jpg', '100315_TMD_022.jpg' };
         images_list = cellfun(@(x) fullfile(dataset_dir, x), images_list, 'UniformOutput', false);
     end
     
     % Additional cropped negatives from Kristjan's dataset
-    if isempty(negative_folders),
+    if isempty(negative_folders)
         negative_folders = { 'dataset-kristjan/negatives-selected' };
     end
     
@@ -92,7 +92,7 @@ function experiment1_leave_one_out (varargin)
     results = repmat(results, 1, numel(images_list));
     
     % Leave-one-out
-    for i = 1:numel(images_list),
+    for i = 1:numel(images_list)
         test_image = images_list{i};
         
         % Load data
@@ -109,10 +109,10 @@ function experiment1_leave_one_out (varargin)
         
         %% Phase 1: train an ACF detector
         acf_detector_file = fullfile(output_dir, experiment_basename, 'acf_detector.mat');
-        if ~exist(acf_detector_file, 'file'),
+        if ~exist(acf_detector_file, 'file')
             % Prepare training dataset
             acf_training_dataset_dir = fullfile(output_dir, experiment_basename, 'acf_training_dataset');
-            if ~exist(acf_training_dataset_dir, 'dir'),
+            if ~exist(acf_training_dataset_dir, 'dir')
                 fprintf('Preparing ACF training dataset...\n');
                 vicos.AcfDetector.training_prepare_dataset(training_images, acf_training_dataset_dir, 'negative_folders', negative_folders, 'mix_negatives_with_positives', mix_negatives_with_positives, 'enhance_images', enhance_images);
             else
@@ -131,7 +131,7 @@ function experiment1_leave_one_out (varargin)
         
         %% Phase 2: train an SVM classifier
         classifier_file = fullfile(output_dir, experiment_basename, sprintf('classifier-%s.mat', polyp_detector.construct_classifier_identifier()));
-        if ~exist(classifier_file, 'file'),
+        if ~exist(classifier_file, 'file')
             fprintf('Training SVM classifier...\n');
             t = tic();
             classifier = polyp_detector.train_svm_classifier('train_images', training_images, 'cache_dir', cache_dir); %#ok<NASGU>
@@ -221,14 +221,14 @@ function experiment1_leave_one_out (varargin)
         results(i).detection_number = detection_number;
         
         %% Visualization (optional)
-        if visualize_proposals,
+        if visualize_proposals
             fig = figure('Visible', 'off');
             vicos.PolypDetector.visualize_detections_as_points(I, polygon, { 'Box centers', box_centers }, regions, 'fig', fig, 'distance_threshold', distance_threshold, 'prefix', sprintf('%s: ACF proposals', experiment_basename));
             savefig(fig, fullfile(output_dir, sprintf('%s-proposals.fig', experiment_basename)), 'compact');
             delete(fig);
         end
         
-        if visualize_detections,
+        if visualize_detections
             fig = figure('Visible', 'off');
             vicos.PolypDetector.visualize_detections_as_points(I, polygon, { 'Box centers', box_centers }, detections, 'fig', fig, 'distance_threshold', distance_threshold, 'prefix', sprintf('%s: final detections', experiment_basename));
             savefig(fig, fullfile(output_dir, sprintf('%s-detection.fig', experiment_basename)), 'compact');
@@ -242,7 +242,7 @@ function experiment1_leave_one_out (varargin)
     % Format 1
     table_line = strjoin({'Image name', 'Num annotations', 'Distance threshold', 'Proposal precision', 'Proposal recall', 'Num proposals', 'Proposal ratio', 'Detection precision', 'Detection recall', 'Num detections', 'Detection ratio\n'}, '\t');
     fprintf(table_line);
-    for i = 1:numel(results),
+    for i = 1:numel(results)
         table_line = strjoin({'%s', '%d', '%.0f px', '%.2f %%', '%.2f %%', '%d', '%.2f %%', '%.2f %%', '%.2f %%', '%d', '%.2f %%\n'}, '\t');
         fprintf(table_line, results(i).image_name, results(i).num_annotations, results(i).distance_threshold, ...
             100*results(i).proposal_precision, 100*results(i).proposal_recall, results(i).proposal_number, 100*results(i).proposal_number/results(i).num_annotations, ...
@@ -251,22 +251,22 @@ function experiment1_leave_one_out (varargin)
     fprintf('\n\n');
     
     % Format 2
-    for i = 1:numel(results),
+    for i = 1:numel(results)
         % Header
         table_line = strjoin({'%s (%.0f px)', 'Number', 'Ratio', 'Precision', 'Recall', 'F-score\n'}, '\t');
         fprintf(table_line, results(i).image_name, distance_threshold);
     
         % Ground truth
         table_line = strjoin({'%s', '%d', '', '', '', '\n' }, '\t');
-        fprintf(table_line, 'ground-truth', results(i).num_annotations);
+        fprintf(table_line, 'ground-truth', results(i).num_annotations); %#ok<CTPCT>
         
         % Proposals
         table_line = strjoin({'%s', '%d', '%.2f %%', '%.2f %%', '%.2f %%', '%.2f %%\n' }, '\t');
-        fprintf(table_line, 'proposal', results(i).proposal_number, 100*results(i).proposal_number/results(i).num_annotations, 100*results(i).proposal_precision, 100*results(i).proposal_recall, 100*results(i).proposal_f_score);
+        fprintf(table_line, 'proposal', results(i).proposal_number, 100*results(i).proposal_number/results(i).num_annotations, 100*results(i).proposal_precision, 100*results(i).proposal_recall, 100*results(i).proposal_f_score); %#ok<CTPCT>
         
         % Detections
         table_line = strjoin({'%s', '%d', '%.2f %%', '%.2f %%', '%.2f %%', '%.2f %%\n' }, '\t');
-        fprintf(table_line, 'detection', results(i).detection_number, 100*results(i).detection_number/results(i).num_annotations, 100*results(i).detection_precision, 100*results(i).detection_recall, 100*results(i).detection_f_score);
+        fprintf(table_line, 'detection', results(i).detection_number, 100*results(i).detection_number/results(i).num_annotations, 100*results(i).detection_precision, 100*results(i).detection_recall, 100*results(i).detection_f_score); %#ok<CTPCT>
         
         fprintf('\n\n');
     end

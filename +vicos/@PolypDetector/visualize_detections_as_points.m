@@ -18,7 +18,7 @@ function fig = visualize_detections_as_points (I, polygon, annotations, detectio
     % Create mask
     mask = poly2mask(polygon(:,1), polygon(:,2), size(I, 1), size(I,2));
 
-    if isempty(fig),
+    if isempty(fig)
         fig = figure();
     else
         set(groot, 'CurrentFigure', fig);
@@ -31,8 +31,8 @@ function fig = visualize_detections_as_points (I, polygon, annotations, detectio
     imshow(Im);
     hold on;
     
-    if ~isempty(evaluate_against) || size(annotations, 1) == 1,
-        if size(annotations, 1) == 1,
+    if ~isempty(evaluate_against) || size(annotations, 1) == 1
+        if size(annotations, 1) == 1
             % There's only one set of annotations, and we evaluate against
             % it
             idx = 1;
@@ -64,15 +64,15 @@ function fig = visualize_detections_as_points (I, polygon, annotations, detectio
         plot(dt(dt_ignored,1), dt(dt_ignored, 2), 'x', 'Color', 'magenta', 'MarkerSize', 8, 'LineWidth', 2); % ignored
         
         % Draw assignments
-        for p = 1:size(dt, 1),
+        for p = 1:size(dt, 1)
             midx = dt(p,end);
-            if midx > 0,
+            if midx > 0
                 plot([ dt(p,1), gt(midx, 1) ], [ dt(p,2), gt(midx, 2) ], 'c-', 'LineWidth', 1.5);
             end
         end
-        for p = 1:size(gt, 1),
+        for p = 1:size(gt, 1)
             midx = gt(p,end);
-            if midx > 0,
+            if midx > 0
                 plot([ gt(p,1), dt(midx, 1) ], [ gt(p,2), dt(midx, 2) ], 'g-', 'LineWidth', 1.5, 'LineStyle', '--');
             end
         end
@@ -99,7 +99,7 @@ function fig = visualize_detections_as_points (I, polygon, annotations, detectio
         num_annotated = size(gt, 1);
         
         % Set title
-        if ~isempty(prefix),
+        if ~isempty(prefix)
             prefix = sprintf('%s: ', prefix);
         end
         title = sprintf('%srecall: %.2f%%, precision: %.2f%%; counted: %d, annotated: %d ', prefix, recall, precision, num_detected, num_annotated);
@@ -108,10 +108,10 @@ function fig = visualize_detections_as_points (I, polygon, annotations, detectio
         h = [];
         legend_entries = {};
 
-        if ~isempty(annotations),
+        if ~isempty(annotations)
             num_annotations = size(annotations, 1);
             colors = lines(num_annotations);
-            for i = 1:num_annotations,
+            for i = 1:num_annotations
                 annotation_id = annotations{i, 1};
                 annotation_points = annotations{i, 2};
 

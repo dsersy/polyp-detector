@@ -7,13 +7,13 @@ function leave_one_out_cross_validation (self, result_dir, varargin)
     parser.parse(varargin{:});
     
     images = parser.Results.images;
-    if isempty(images),
+    if isempty(images)
         images = union(self.default_train_images, self.default_test_images);
     end
     
     store_visualizations = parser.Results.store_visualizations;
     
-    if store_visualizations,
+    if store_visualizations
         visible = 'off';
         fig_boxes = figure('Visible', visible);
         fig_points = figure('Visible', visible);
@@ -35,7 +35,7 @@ function leave_one_out_cross_validation (self, result_dir, varargin)
         'num_annotated', 0, ...
         'num_detected', 0), 1, numel(images));
     
-    for i = 1:numel(images),
+    for i = 1:numel(images)
         train_images = images;
         train_images(i) = [];
         
@@ -46,14 +46,14 @@ function leave_one_out_cross_validation (self, result_dir, varargin)
         
         % Try loading result from cache
         results_file = fullfile(result_dir, [ basename, '.mat' ]);
-        if exist(results_file, 'file'),
+        if exist(results_file, 'file')
             all_results(i) = load(results_file);
             continue;
         end
         
         %% Train SVM
         classifier_file = fullfile(result_dir, 'classifiers', [ basename, '.mat' ]);
-        if exist(classifier_file, 'file'),
+        if exist(classifier_file, 'file')
             % Load from file
             tmp = load(classifier_file);
             self.svm_classifier = tmp.classifier;
@@ -74,7 +74,7 @@ function leave_one_out_cross_validation (self, result_dir, varargin)
         end
         
         %% Process the left-out image
-        if store_visualizations,
+        if store_visualizations
             extra_args = { 'display_detections', fig_boxes, 'display_detections_as_points', fig_points };
         else
             extra_args = false;
@@ -115,7 +115,7 @@ function leave_one_out_cross_validation (self, result_dir, varargin)
         save(results_file, '-v7.3', '-struct', 'results');
         
         % Save visualization
-        if store_visualizations,
+        if store_visualizations
             figure_file = fullfile(result_dir, [ basename, '-boxes.fig' ]);
             savefig(fig_boxes, figure_file);
             

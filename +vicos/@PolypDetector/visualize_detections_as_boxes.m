@@ -19,12 +19,12 @@ function fig = visualize_detections_as_boxes (I, polygon, annotations, detection
     mask = poly2mask(polygon(:,1), polygon(:,2), size(I, 1), size(I,2));
 
     % Evaluate detections (if annotations are available)
-    if ~isempty(annotations),
+    if ~isempty(annotations)
         [ gt, det ] = vicos.PolypDetector.evaluate_detections(detections, annotations, 'threshold', overlap_threshold, 'multiple', multiple_matches, 'validity_mask', mask);
     end
     
     % Figure
-    if isempty(fig),
+    if isempty(fig)
         fig = figure();
     else
         set(groot, 'CurrentFigure', fig);
@@ -36,7 +36,7 @@ function fig = visualize_detections_as_boxes (I, polygon, annotations, detection
     imshow(Im);
     hold on;
 
-    if ~isempty(annotations),
+    if ~isempty(annotations)
         % Draw ground-truth; TP and FN
         vicos.utils.draw_boxes(gt(gt(:,5) == 1,:), 'color', 'cyan', 'line_style', '-'); % TP
         vicos.utils.draw_boxes(gt(gt(:,5) == 0,:), 'color', 'yellow', 'line_style', '-'); % FN
@@ -68,7 +68,7 @@ function fig = visualize_detections_as_boxes (I, polygon, annotations, detection
         num_detected = sum(det(:,6) ~= -1);
 
         % Set title
-        if ~isempty(prefix),
+        if ~isempty(prefix)
             prefix = sprintf('%s: ', prefix);
         end
         title = sprintf('%srecall: %.2f%%, precision: %.2f%%; counted: %d, annotated: %d ', prefix, recall, precision, num_detected, num_annotated);

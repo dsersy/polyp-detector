@@ -16,12 +16,12 @@ function [ regions, time_det, time_nms ] = detect_candidate_regions (self, I, ca
     %
     % Note: creates ACF instance on demand
     
-    if ~exist('cache_file', 'var'),
+    if ~exist('cache_file', 'var')
         cache_file = '';
     end
     
     %% Region detection / caching
-    if ~isempty(cache_file) && exist(cache_file, 'file'),
+    if ~isempty(cache_file) && exist(cache_file, 'file')
         % Load from cache
         tmp = load(cache_file);
         
@@ -34,7 +34,7 @@ function [ regions, time_det, time_nms ] = detect_candidate_regions (self, I, ca
         time_nms = tmp.time_nms;
     else
         % Create ACF detector, if necessary
-        if isempty(self.acf_detector),
+        if isempty(self.acf_detector)
             self.acf_detector = self.acf_detector_factory();
         end
         
@@ -42,7 +42,7 @@ function [ regions, time_det, time_nms ] = detect_candidate_regions (self, I, ca
         [ regions, regions_all, time_det, time_nms ] = self.acf_detector.detect(I, 'nms_overlap', self.acf_nms_overlap);
         
         % Save to cache
-        if ~isempty(cache_file),
+        if ~isempty(cache_file)
             vicos.utils.ensure_path_exists(cache_file);
             
             tmp = struct(...
@@ -57,7 +57,7 @@ function [ regions, time_det, time_nms ] = detect_candidate_regions (self, I, ca
     end
     
     % Rescale boxes, if necessary
-    if self.acf_box_scaling ~= 1.0,
+    if self.acf_box_scaling ~= 1.0
         regions = enlarge_boxes(regions, self.acf_box_scaling);
     end
 end

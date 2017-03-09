@@ -26,7 +26,7 @@ function detector = training_train_detector (data_dir, varargin)
     name = parser.Results.name;
     window_size = parser.Results.window_size;
     padded_size = parser.Results.padded_size;
-    if isempty(padded_size),
+    if isempty(padded_size)
         padded_size = window_size;
     end
     output_file = parser.Results.output_file;
@@ -50,7 +50,7 @@ function detector = training_train_detector (data_dir, varargin)
     opts.posGtDir = fullfile(data_dir, 'train', 'posGT'); % dir containing ground truth
 
     negative_dir = fullfile(data_dir, 'train', 'neg');
-    if exist(negative_dir, 'dir'),
+    if exist(negative_dir, 'dir')
         opts.negImgDir = negative_dir; % dir containing negative images
     end
 
@@ -66,7 +66,7 @@ function detector = training_train_detector (data_dir, varargin)
     detector.opts.name = name; % Override name
 
     % Save detector?
-    if ~isempty(output_file),
+    if ~isempty(output_file)
         save(output_file, '-v7.3', 'detector', 'training_time');
     end
 end

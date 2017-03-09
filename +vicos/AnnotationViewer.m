@@ -64,10 +64,10 @@ classdef AnnotationViewer < handle
             %  - filename: image file to load
             
             % Select file
-            if ~exist('filename', 'var') || isempty(filename),
+            if ~exist('filename', 'var') || isempty(filename)
                 % Select file
                 [ filename, pathname ] = uigetfile('*.jpg;*.png;*.bmp;*.jpeg;*.tif', 'Pick an image file', self.image_file);
-                if isequal(filename, 0),
+                if isequal(filename, 0)
                     return;
                 end
                 filename = fullfile(pathname, filename);
@@ -122,7 +122,7 @@ classdef AnnotationViewer < handle
             % Select previous/next
             new_idx = idx + direction;
             
-            if new_idx < 1 || new_idx > numel(files),
+            if new_idx < 1 || new_idx > numel(files)
                 return;
             end
             
@@ -140,7 +140,7 @@ classdef AnnotationViewer < handle
             clf(self.figure_main);
             
             % Display image
-            if self.show_masked,
+            if self.show_masked
                 imshow(vicos.PolypDetector.mask_image_with_polygon(self.I, self.polygon));
             else
                 imshow(self.I);
@@ -177,12 +177,12 @@ classdef AnnotationViewer < handle
             %
             % Display currently-selected bounding box.
             
-            if ~isempty(self.selected_box_handle),
+            if ~isempty(self.selected_box_handle)
                 valid_idx = ishandle(self.selected_box_handle);
                 delete(self.selected_box_handle(valid_idx));
             end
             
-            if ~isempty(self.selected_boxes),
+            if ~isempty(self.selected_boxes)
                 idx = self.selected_boxes(self.selected_box_idx);
                 
                 % Select box
@@ -204,12 +204,12 @@ classdef AnnotationViewer < handle
 
             % Do we even have a polygon?
             polygon = self.polygon;
-            if isempty(polygon),
+            if isempty(polygon)
                 return;
             end
             
             % Make sure polygon is closed
-            if ~isequal(polygon(1,:), polygon(end,:)),
+            if ~isequal(polygon(1,:), polygon(end,:))
                 polygon = [ polygon; polygon(1,:) ]; % Make sure polygon is closed
             end
             
@@ -232,7 +232,7 @@ classdef AnnotationViewer < handle
             % Selects previous/next bounding box annotation.
             
             % Do we have a box selected?
-            if isempty(self.selected_boxes) || isempty(self.selected_box_idx),
+            if isempty(self.selected_boxes) || isempty(self.selected_box_idx)
                 return;
             end
             
@@ -240,10 +240,10 @@ classdef AnnotationViewer < handle
             self.selected_box_idx = self.selected_box_idx + offset;
             
             % Wrap-around
-            if self.selected_box_idx > numel(self.selected_boxes),
+            if self.selected_box_idx > numel(self.selected_boxes)
                 self.selected_box_idx = 1;
             end
-            if self.selected_box_idx < 1,
+            if self.selected_box_idx < 1
                 self.selected_box_idx = numel(self.selected_boxes);
             end
             
@@ -257,7 +257,7 @@ classdef AnnotationViewer < handle
             % Deletes currently selected bounding box annotation.
             
             % Do we have a box selected?
-            if isempty(self.selected_boxes),
+            if isempty(self.selected_boxes)
                 return;
             end
             
@@ -288,7 +288,7 @@ classdef AnnotationViewer < handle
             
             % If drawn rectangle is valid, undo the currently-set scaling,
             % and store it.
-            if isvalid(rect),
+            if isvalid(rect)
                 % Get box (x, y, w, h)
                 box = rect.getPosition();
                 
@@ -353,14 +353,14 @@ classdef AnnotationViewer < handle
             %
             % Keyboard event handler.
             
-            switch event.Key,
-                case { 'a', 'leftarrow' },
+            switch event.Key
+                case { 'a', 'leftarrow' }
                     self.load_next_image(-1);
-                case { 's', 'rightarrow' },
+                case { 's', 'rightarrow' }
                     self.load_next_image(+1);
-                case 'l',
+                case 'l'
                     self.load_image();
-                case 'e',
+                case 'e'
                     prompt = {'Enter box scale factor:'};
                     name = 'Scale boxes';
                     numlines = 1;
@@ -368,35 +368,35 @@ classdef AnnotationViewer < handle
  
                     answer = inputdlg(prompt, name, numlines, defaultanswer);
                     
-                    if isempty(answer),
+                    if isempty(answer)
                         return;
                     end
                     
                     self.boxes_scale = str2double(answer{1});
                     
                     self.display_boxes();
-                case 'p',
+                case 'p'
                     self.modify_polygon()
-                case 'return',
-                    if ~isempty(self.impoly_handle) && isvalid(self.impoly_handle),
+                case 'return'
+                    if ~isempty(self.impoly_handle) && isvalid(self.impoly_handle)
                         self.polygon = self.impoly_handle.getPosition();
                         delete(self.impoly_handle);
                         self.impoly_handle = [];
                         
                         self.display_polygon();
                     end     
-                case { 'delete', 'subtract' },
+                case { 'delete', 'subtract' }
                     % Delete box
                     self.delete_selected_box();
-                case { 'add' },
+                case { 'add' }
                     self.add_box();
-                case 'm',
+                case 'm'
                     self.show_masked = ~self.show_masked;
                     self.display_data();
-                case '1',
+                case '1'
                     % 1: save annotations
                     [ filename, pathname ] = uiputfile(self.boxes_file, 'Save boxes as');
-                    if isequal(filename, 0),
+                    if isequal(filename, 0)
                         return;
                     end
                     filename = fullfile(pathname, filename);
@@ -404,10 +404,10 @@ classdef AnnotationViewer < handle
                     fid = fopen(filename, 'w');
                     fprintf(fid, '%g %g %g %g\n', self.boxes');
                     fclose(fid);
-                case '2',
+                case '2'
                     % 2: save polygon
                     [ filename, pathname ] = uiputfile(self.poly_file, 'Save polygon as');
-                    if isequal(filename, 0),
+                    if isequal(filename, 0)
                         return;
                     end
                     filename = fullfile(pathname, filename);
@@ -415,11 +415,11 @@ classdef AnnotationViewer < handle
                     fid = fopen(filename, 'w');
                     fprintf(fid, '%g %g\n', self.polygon');
                     fclose(fid);
-                case 'f',
+                case 'f'
                     % Filter annotations
                     self.filter_annotations();
                     self.display_data();
-                case 'h',
+                case 'h'
                     self.display_help();
             end
         end
@@ -444,7 +444,7 @@ classdef AnnotationViewer < handle
                             
             idx = find(x >= x1 & x <= x2 & y >= y1 & y <= y2);
              
-            if isequal(idx, self.selected_boxes),
+            if isequal(idx, self.selected_boxes)
                 select_next_box(self, +1);
             else
                 % Store list of all boxes

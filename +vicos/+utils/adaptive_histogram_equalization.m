@@ -12,7 +12,7 @@ function Ie = adaptive_histogram_equalization (I, varargin)
     % Output:
     %  - Ie: enhanced image of same dimensions and type as the input image
     
-    if size(I, 3) == 1,
+    if size(I, 3) == 1
         % Grayscale
         Ie = adapthisteq(I, varargin{:});
     else
@@ -26,7 +26,7 @@ function Ie = adaptive_histogram_equalization (I, varargin)
         Ie = hsv2rgb(Ihsv);
 
         % Convert back to uint8
-        if isa(I, 'uint8'),
+        if isa(I, 'uint8')
             Ie = uint8(255*Ie);
         end
     end

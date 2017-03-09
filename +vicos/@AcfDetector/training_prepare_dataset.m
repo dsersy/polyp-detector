@@ -58,7 +58,7 @@ function training_prepare_dataset (training_images, output_path, varargin)
     mkdir(fullfile(output_path, 'train', 'posGT'));
     
     %% Process positives
-    for f = 1:numel(training_images),
+    for f = 1:numel(training_images)
         image_file = training_images{f};
         
         %% Load data
@@ -75,7 +75,7 @@ function training_prepare_dataset (training_images, output_path, varargin)
         boxes = vicos.PolypDetector.enlarge_boxes(boxes, box_scale);
 
         % Mark boxes on the edge of ROI as ignore
-        if ignore_masked_boxes,
+        if ignore_masked_boxes
             validity_mask = poly2mask(poly(:,1), poly(:,2), size(I, 1), size(I,2));
             
             x1 = boxes(:,1);
@@ -116,16 +116,16 @@ function training_prepare_dataset (training_images, output_path, varargin)
         bbGt('bbSave', annotations, output_annotation);
         
         %% Save/copy image
-        if mask_images || enhance_images,
+        if mask_images || enhance_images
             Io = I;
             
             % Enhance?
-            if enhance_images,
+            if enhance_images
                 Io = vicos.utils.adaptive_histogram_equalization(Io);
             end
             
             % Mask?
-            if mask_images,
+            if mask_images
                 Io = vicos.PolypDetector.mask_image_with_polygon(Io, poly);
             end
             
@@ -140,16 +140,16 @@ function training_prepare_dataset (training_images, output_path, varargin)
     end
     
     %% Process negatives
-    if mix_negatives_with_positives,
+    if mix_negatives_with_positives
         num_neg_files = 0;
 
-        for d = 1:numel(negative_folders),
+        for d = 1:numel(negative_folders)
             negative_folder = negative_folders{d};
             
             fprintf('Copying negative images from "%s"...\n', negative_folder);
             files = dir(fullfile(negative_folder));
             files([files.isdir]) = [];
-            for f = 1:numel(files),
+            for f = 1:numel(files)
                 [ ~, ~, ext ] = fileparts(files(f).name);
                 input_image = fullfile( negative_folder, files(f).name );
                 
@@ -157,7 +157,7 @@ function training_prepare_dataset (training_images, output_path, varargin)
                 output_image = fullfile(output_path, 'train', 'pos', [ basename, ext ]);
                 output_annotation = fullfile(output_path, 'train', 'posGT', [ basename, '.txt' ]);
 
-                if enhance_images,
+                if enhance_images
                     Ii = imread(input_image);
                     Io = vicos.utils.adaptive_histogram_equalization(Ii);
                     imwrite(Io, output_image);
@@ -174,25 +174,25 @@ function training_prepare_dataset (training_images, output_path, varargin)
     else
         negative_output_dir = fullfile(output_path, 'train', 'neg');
 
-        if isempty(negative_folders),
+        if isempty(negative_folders)
             fprintf('Do not forget to copy/link the appropriate negative images to "%s"!\n', negative_output_dir);
         else
             mkdir(negative_output_dir);
 
             num_neg_files = 0;
 
-            for d = 1:numel(negative_folders),
+            for d = 1:numel(negative_folders)
                 negative_folder = negative_folders{d};
                 
                 fprintf('Copying negative images from "%s"...\n', negative_folder);
                 files = dir(fullfile(negative_folder));
                 files([files.isdir]) = [];
-                for f = 1:numel(files),
+                for f = 1:numel(files)
                     [ ~, ~, ext ] = fileparts(files(f).name);
                     input_image = fullfile( negative_folder, files(f).name );
                     output_image = fullfile( negative_output_dir, sprintf('%04d%s', num_neg_files, ext) );
                     
-                    if enhance_images,
+                    if enhance_images
                         Ii = imread(input_image);
                         Io = vicos.utils.adaptive_histogram_equalization(Ii);
                         imwrite(Io, output_image);
@@ -221,7 +221,7 @@ function copy_or_link_file (input_filename, output_filename, force_copy)
     % Note: symbolic links are available only on linux. On other platforms,
     % a copy is always made.
     
-    if ~force_copy && isunix(),
+    if ~force_copy && isunix()
         command = sprintf('ln -s "$(readlink -f "%s")" "%s"', input_filename, output_filename);
         system(command);
     else

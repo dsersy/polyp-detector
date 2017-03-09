@@ -7,7 +7,7 @@ function ensure_path_exists (file)
     %  - file: filename
     
     path = fileparts(file);
-    if ~exist(path, 'dir'),
+    if ~exist(path, 'dir')
         mkdir(path);
     end
 end

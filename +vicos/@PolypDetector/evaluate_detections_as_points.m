@@ -40,7 +40,7 @@ function [ gt, dt ] = evaluate_detections_as_points (detections, annotations, va
     validity_mask = parser.Results.validity_mask;
 
     % Detections
-    if size(detections, 2) >= 4,
+    if size(detections, 2) >= 4
         % If detections matrix has four or more columns, assume that we
         % are given detections as boxes (plus optional scores) and convert
         % them to centroids
@@ -65,8 +65,8 @@ function [ gt, dt ] = evaluate_detections_as_points (detections, annotations, va
     dt(:,end+1) = 0;
     gt(:,end+1) = 0;
     
-    for i = 1:numel(assignment),
-        if size(dt, 1) <= size(gt, 1),
+    for i = 1:numel(assignment)
+        if size(dt, 1) <= size(gt, 1)
             dt_idx = i;
             gt_idx = assignment(i);
         else
@@ -76,13 +76,13 @@ function [ gt, dt ] = evaluate_detections_as_points (detections, annotations, va
         
         % LAPJV assigns the invalid (Inf) entries as well, so we need to
         % check fo those manually.
-        if isfinite(D(dt_idx, gt_idx)),
+        if isfinite(D(dt_idx, gt_idx))
             dt(dt_idx,end) = gt_idx;
             gt(gt_idx,end) = dt_idx;
         end
     end
     
-    if ~isempty(validity_mask),
+    if ~isempty(validity_mask)
         % Filter ground-truth
         x = round(gt(:,1));
         y = round(gt(:,2));

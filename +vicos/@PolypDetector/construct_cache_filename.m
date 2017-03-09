@@ -8,7 +8,7 @@ function identifier = construct_cache_filename (self, basename, enhance_image, r
     identifier = basename;
     
     % Image enhancement
-    if enhance_image, 
+    if enhance_image
         identifier = [ identifier, sprintf('clahe') ];
     end
     

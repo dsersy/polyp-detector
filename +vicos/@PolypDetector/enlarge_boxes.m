@@ -13,7 +13,7 @@ function boxes = enlarge_boxes (boxes, scale_factor)
     %  - boxes: rescaled boxes
     
     % Catch the no-op case
-    if scale_factor == 1,
+    if scale_factor == 1
         return;
     end
     

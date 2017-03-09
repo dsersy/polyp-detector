@@ -31,7 +31,7 @@ function svm = train_svm_classifier (self, varargin)
     
     all_features = cell(1, num_images);
     all_labels = cell(1, num_images);
-    for i = 1:num_images,
+    for i = 1:num_images
         image_file = train_images{i};
         fprintf('Processing train image #%d/%d: %s\n', i, num_images, train_images{i});
         
@@ -44,7 +44,7 @@ function svm = train_svm_classifier (self, varargin)
         % that will be later discarded, in order to keep cache
         % files consistent with those produced by the
         % process_image() function!
-        if ~isempty(cache_dir),
+        if ~isempty(cache_dir)
             rescale_image = 1; % We do not support rescaling here...
             cache_basename = self.construct_cache_filename(basename, self.enhance_image, rescale_image, self.acf_nms_overlap);
             cnn_cache_file = fullfile(cache_dir, 'cnn-cache', [ cache_basename, '.mat' ]);
@@ -73,7 +73,7 @@ function svm = train_svm_classifier (self, varargin)
         all_labels{i} = 2*labels - 1;
         
         %% Visualize training samples
-        if display_svm_samples,
+        if display_svm_samples
             fig = figure('Name', sprintf('SVM training samples: %s', basename));
             clf(fig);
             
@@ -107,7 +107,7 @@ function svm = train_svm_classifier (self, varargin)
     svm = self.classifier_factory(); % Create SVM
     svm.train(all_features, all_labels);
     
-    if nargout < 1,
+    if nargout < 1
         self.svm_classifier = svm;
     end
 end

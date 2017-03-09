@@ -15,12 +15,12 @@ function [ features, time ] = extract_features_from_regions (self, I, regions, c
     %
     % Note: creates CNN Feature Extractor instance on demand
     
-    if ~exist('cache_file', 'var'),
+    if ~exist('cache_file', 'var')
         cache_file = '';
     end
     
     %% Feature extraction / caching
-    if ~isempty(cache_file) && exist(cache_file, 'file'),
+    if ~isempty(cache_file) && exist(cache_file, 'file')
         % Load from cache
         tmp = load(cache_file);
         
@@ -35,7 +35,7 @@ function [ features, time ] = extract_features_from_regions (self, I, regions, c
         boxes = [ regions(:,1), regions(:,2), regions(:,1)+regions(:,3)+1, regions(:,2)+regions(:,4)+1 ]';
         
         % Create extractor, if necessary
-        if isempty(self.cnn_extractor),
+        if isempty(self.cnn_extractor)
             self.cnn_extractor = self.feature_extractor_factory();
         end
         
@@ -43,7 +43,7 @@ function [ features, time ] = extract_features_from_regions (self, I, regions, c
         [ features, time ] = self.cnn_extractor.extract(I, 'regions', boxes);
         
         % Save to cache
-        if ~isempty(cache_file),
+        if ~isempty(cache_file)
             vicos.utils.ensure_path_exists(cache_file);
             
             tmp = struct(...
@@ -55,7 +55,7 @@ function [ features, time ] = extract_features_from_regions (self, I, regions, c
     end
     
     %% Feature normalization
-    if self.l2_normalized_features,
+    if self.l2_normalized_features
         features = bsxfun(@rdivide, features, sqrt(sum(features .^ 2)));
     end
 end
