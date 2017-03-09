@@ -3,9 +3,21 @@ function experiment1_evaluate_experts (varargin)
     %
     % Evaluates the experts' annotations against the ones made by Martin,
     % in order to obtain baseline for Experiment 1.
-        
-    % The first seven images from Martin's dataset (v2)
-    images_list = { '01.01.jpg', '02.02.jpg', '02.04.jpg', '05.01.jpg', '07.03.jpg', '100315_TMD_007.jpg', '100315_TMD_022.jpg' };
+    
+    parser = inputParser();
+    parser.addParameter('dataset_dir', 'dataset-martin2', @ischar);
+    parser.addParameter('images_list', {}, @iscell);
+    parser.addParameter('use_fallback_annotations', true, @islogical);
+    parser.parse(varargin{:});
+    
+    dataset_dir = parser.Results.dataset_dir;
+    images_list = parser.Results.images_list;
+    use_fallback_annotations = parser.Results.use_fallback_annotations;
+    
+    if isempty(images_list),
+        % The first seven images from Martin's dataset (v2)
+        images_list = { '01.01.jpg', '02.02.jpg', '02.04.jpg', '05.01.jpg', '07.03.jpg', '100315_TMD_007.jpg', '100315_TMD_022.jpg' };
+    end
     
     for i = 1:numel(images_list),
         image_name = images_list{i};
@@ -13,12 +25,16 @@ function experiment1_evaluate_experts (varargin)
         %fprintf('*** Image #%d/%d: %s ***\n', i, numel(images_list), image_name);
         
         % Get data for the image (Martin's dataset v2)
-        [ I, experiment_basename, polygon, boxes, expert_annotations ] = vicos.PolypDetector.load_data(fullfile('dataset-martin2', image_name));
+        [ I, experiment_basename, polygon, boxes, expert_annotations ] = vicos.PolypDetector.load_data(fullfile(dataset_dir, image_name));
         
         % If we did not get any manual annotations, try getting them from
         % Martin's dataset v1
         if isempty(expert_annotations),
-            [ ~, ~, ~, ~, expert_annotations ] = vicos.PolypDetector.load_data(fullfile('dataset-martin', image_name));
+            if ~use_fallback_annotations,
+                error('No manual-count annotations found!');
+            else
+                [ ~, ~, ~, ~, expert_annotations ] = vicos.PolypDetector.load_data(fullfile('dataset-martin', image_name));
+            end
         end
         
          % Compute the average polyp dimensions
