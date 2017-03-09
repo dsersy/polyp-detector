@@ -35,6 +35,8 @@ function detections = process_image (self, image_filename, varargin)
     %    - rescale_image: scale factor by which the image should be resized
     %      before processing. Note that rescaling is applied after image is
     %      cropped to the ROI size.
+    %    - display_timings: print timings for individual stages (default:
+    %      false)
     %
     % Output:
     %  - detections
@@ -55,6 +57,7 @@ function detections = process_image (self, image_filename, varargin)
     parser.addParameter('distance_threshold', self.evaluation_distance, @isnumeric);
     parser.addParameter('enhance_image', self.enhance_image, @islogical);
     parser.addParameter('rescale_image', 1.0, @isnumeric);
+    parser.addParameter('display_timings', false, @islogical);
     parser.parse(varargin{:});
     
     cache_dir = parser.Results.cache_dir;
@@ -67,6 +70,8 @@ function detections = process_image (self, image_filename, varargin)
     distance_threshold = parser.Results.distance_threshold;
     enhance_image = parser.Results.enhance_image;
     rescale_image = parser.Results.rescale_image;
+    
+    display_timings = parser.Results.display_timings;
     
     % Figures (because we allow figure handle to be passed via display_
     % parameters)
@@ -100,6 +105,8 @@ function detections = process_image (self, image_filename, varargin)
     
     %% Load and prepare the image
     [ Iorig, basename, poly, annotations, annotations_pts ] = self.load_data(image_filename);
+    
+    t_total = tic();
     
     % Enhance the image
     if enhance_image,
@@ -139,6 +146,8 @@ function detections = process_image (self, image_filename, varargin)
     end
     
     % Detect
+    t = tic();
+    
     regions = self.detect_candidate_regions(Im, acf_cache_file);
     
     % Undo the scaling
@@ -147,6 +156,10 @@ function detections = process_image (self, image_filename, varargin)
     % Undo the effect of the crop
     regions(:,1) = regions(:,1) + xmin;
     regions(:,2) = regions(:,2) + ymin;
+
+    if display_timings,
+        fprintf(' > Timings: region proposal: %f seconds\n', toc(t));
+    end
     
     % Display ACF regions
     if display_regions,
@@ -180,24 +193,44 @@ function detections = process_image (self, image_filename, varargin)
     end
     
     % Extract
+    t = tic();
+
     features = self.extract_features_from_regions(I, regions, cnn_cache_file);
+    
+    if display_timings,
+        fprintf(' > Timings: CNN feature extraction: %f seconds\n', toc(t));
+    end
     
     %% Classify with SVM
     fprintf('Performing SVM classification...\n');
+    
+    t = tic();
+    
     [ ~, scores ] = self.svm_classifier.predict(features);
     
     positive_mask = scores >= 0;
     positive_regions = regions(positive_mask,1:4);
     positive_scores = scores(positive_mask);
     
+    if display_timings,
+        fprintf(' > Timings: SVM: %f seconds\n', toc(t));
+    end
+    
     %% Additional NMS on top of SVM predictions
     fprintf('Performing NMS on top of SVM predictions...\n');
+    
+    t = tic();
     
     detections = bbNms([ positive_regions, positive_scores' ], ...
         'type', 'maxg', ...
         'overlap', self.svm_nms_overlap, ...
         'ovrDnm', 'union');
     
+    if display_timings,
+        fprintf(' > Timings: NMS: %f seconds\n', toc(t));
+        fprintf(' >> Timings: total: %f seconds\n', toc(t_total));
+    end
+
     % Display detections
     if display_detections,
         self.visualize_detections_as_boxes(Iorig, poly, annotations, detections, 'fig', display_detections_fig, 'multiple_matches', false, 'overlap_threshold', overlap_threshold, 'prefix', sprintf('%s: Final', basename));
