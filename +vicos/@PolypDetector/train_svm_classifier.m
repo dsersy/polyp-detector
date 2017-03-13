@@ -73,8 +73,8 @@ function svm = train_svm_classifier (self, varargin)
         all_labels{i} = 2*labels - 1;
         
         %% Visualize training samples
-        if display_svm_samples
-            fig = figure('Name', sprintf('SVM training samples: %s', basename));
+        if display_svm_samples && ~isempty(cache_dir)
+            fig = figure('Name', sprintf('SVM training samples: %s', basename), 'visible', 'off');
             clf(fig);
             
             % Show image
@@ -93,6 +93,13 @@ function svm = train_svm_classifier (self, varargin)
             legend(h, 'pos', 'neg');
             
             drawnow();
+            
+            % Save figure
+            fig_filename = fullfile(cache_dir, sprintf('svm-samples-%s.fig', basename));
+            savefig(fig, fig_filename, 'compact');
+            
+            % Cleanup
+            delete(fig);
         end
     end
     
