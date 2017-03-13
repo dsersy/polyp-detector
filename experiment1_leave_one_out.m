@@ -2,20 +2,20 @@ function experiment1_leave_one_out (varargin)
     % EXPERIMENT1_LEAVE_ONE_OUT (varargin)
     %
     % Performs leave-one-out part evaluation of Experiment 1 in the paper.
-    % It takes the first seven images from Martin's dataset (v2), and for
+    % It takes the first seven images from Martin's dataset, and for
     % each image, trains both an ACF detector and CNN/SVM classifier with
     % all other images, then tests on the current image.
     %
     % Input: optional key/value pairs
     %  - output_dir: output directory (default: experiment1-leave-one-out)
     %  - images_list: list of images to use in the experiment (default:
-    %    first seven images from Martin's dataset v2)
+    %    first seven images from Martin's dataset)
     %  - negative_folders: list of folders with negative images to use
     %    when training the ACF detector (default: use the cropped negatives
     %    from Kristjan's dataset)
     %  - mix_negatives_with_positives: when training an ACF detector, put
     %    the negative images into folder with labelled images to perform
-    %    hard negative mining on all images (default: true)
+    %    hard negative mining on all images (default: false)
     %  - acf_window_size: base window size for ACF detector (default: 30
     %    pixels)
     %  - visualize_proposals: create .fig file with visualization of ACF
@@ -34,7 +34,7 @@ function experiment1_leave_one_out (varargin)
     parser.addParameter('output_dir', '', @ischar);
     parser.addParameter('images_list', {}, @iscell);
     parser.addParameter('negative_folders', {}, @iscell);
-    parser.addParameter('mix_negatives_with_positives', true, @islogical);
+    parser.addParameter('mix_negatives_with_positives', false, @islogical);
     parser.addParameter('acf_window_size', 30, @isnumeric);
     parser.addParameter('visualize_proposals', false, @islogical);
     parser.addParameter('visualize_detections', false, @islogical);
@@ -50,9 +50,6 @@ function experiment1_leave_one_out (varargin)
     visualize_detections = parser.Results.visualize_detections;
     enhance_images = parser.Results.enhance_images;
     
-    % Shut the warning about image magnification
-    warning('off', 'images:initSize:adjustingMag');
-
     % Output directory
     if isempty(output_dir)
         output_dir = 'experiment1-leave-one-out';
@@ -62,16 +59,17 @@ function experiment1_leave_one_out (varargin)
         end 
     end
     
-    % Training images: the first seven images from Martin's dataset (v2)
+    % Images: the first seven images from Martin's dataset
     if isempty(images_list)
-        dataset_dir = 'dataset-martin2';
+        dataset_dir = 'dataset-martin';
         images_list = { '01.01.jpg', '02.02.jpg', '02.04.jpg', '05.01.jpg', '07.03.jpg', '100315_TMD_007.jpg', '100315_TMD_022.jpg' };
         images_list = cellfun(@(x) fullfile(dataset_dir, x), images_list, 'UniformOutput', false);
     end
     
-    % Additional cropped negatives from Kristjan's dataset
+    % Additional cropped negatives from Kristjan's dataset (for ACF
+    % detector training)
     if isempty(negative_folders)
-        negative_folders = { 'dataset-kristjan/negatives-selected' };
+        negative_folders = { 'dataset-kristjan/negatives' };
     end
     
     % Create a polyp detector pipeline
