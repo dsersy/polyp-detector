@@ -34,9 +34,9 @@ to reproduce the experiments.
 This is an **academic-grade software prototype**, provided as-is
 and without support beyond the included documentation. It works for me on my computers, and
 perhaps, if your karma is good enough, the deity of your choice is having a good day,
-*and* the relevant celestial bodies are correctly aligned, it might work for you too. But
+*and* the relevant celestial bodies are correctly aligned, it might work for you as well. But
 it is just as (if not more) likely to fail in mysterious ways
-and spew cryptic error messages. Or crash your Matlab (which is
+and spew cryptic error messages instead. Or crash your Matlab (which is
 actually quite likely due to the finicky nature of error
 handling in the Caffe library). There, you cannot say you were not warned...
 
@@ -75,6 +75,7 @@ a CUDA-enabled Caffe build. If you build Caffe without CUDA (by not
 having it installed when executing the steps outlined below), you will
 likely need to change 'use_gpu' flag in the feature extractor preset
 (file PolypDetector.m, static method feature_extractor_imagenet_fc7).
+
 
 ## Installation
 
@@ -156,3 +157,124 @@ Then simply run the wrapper script:
 ```Shell
 ./code/start_matlab.sh
 ```
+
+## Running the experiments
+
+The Matlab code can be roughly divided into the polyp detection pipeline
+and the experiment framework functions, which correspond to the experiments
+outlined in the MEPS paper [2].
+
+Once you have set up the code and datasets, and started the Matlab as
+outlined in the previous sections, you can perform the following steps
+(the following Matlab commands are run from inside the working directory).
+
+### Part 1a: consistency of human annotators
+The first part of experimental evaluation involves estimation of consistency
+of human annotators on the first seven images from the dataset-martin:
+```Matlab
+experiment1_evaluate_experts();
+```
+The above program loads the annotations made by each human annotators, and
+uses the evaluation framework (the same as later used to evaluate the detector
+pipeline) to compare them to the ground-truth annotations.
+
+The results are printed in form of tab-separated table, and correspond to
+values found in Table 1, Table 2, and Table S1 in the MEPS paper [2].
+
+### Part 1b: leave-one-out evaluation of detector pipeline
+
+Similarly, to perform the leave-one-out evaluation of the detector
+pipeline on the first seven images from the dataset-martin, run:
+```Matlab
+experiment1_leave_one_out();
+```
+The whole experiment may take a while; for each of the seven images, it
+takes the other six images, and uses them to train both the first stage
+of the pipeline (i.e., the ACF detector) and the second stage of the
+pipeline (i.e., SVM on top of CNN features extracted from proposed regions).
+It then uses the trained pipeline to process the held-out image, and
+evaluates the detection results.
+
+The obtained values correspond to those listed in Table 3 in the MEPS
+paper [2].
+
+#### Visualization
+
+To visualize the results as the test images are processed, use the
+'visualize_detections' option. The experiment code also caches the
+results, so before running the experiment again, either remove the old
+results directory or use a different one via 'output_dir' option:
+```Matlab
+experiment1_leave_one_out('output_dir', 'experiment1-leave-one-out-viz', 'visualize_detections', true);
+```
+The example above will create Matlab .fig files in the result directory;
+to load and display them, use:
+```Matlab
+openfig('experiment1-leave-one-out-viz/01.01-detection.fig', 'visible');
+```
+The figures are relatively large and may take some time to open and display.
+Each figure shows masked input image, centroids of ground-truth annotations
+(+) and centroids of obtained detections (x). The links between them
+denote the assignments done during evaluation to determine TP, FP, and FN
+(the maximum allowed distance is determined by size of annotated polyps, and
+enforces reasonably-local assignments).
+
+
+### Part 2: comparison on large-scale dataset
+
+The second experiment (feasibility study for application to population
+dynamics analysis) involves training the pipeline on one, relatively
+small, annotated dataset, and using it to process a different, larger
+dataset:
+```Matlab
+experiment2_train_and_evaluate();
+```
+The above program trains both stages of detector pipeline, and then
+uses it to process 60 images from study of (Hocevar et al., 2016).
+
+Alternatively, it is possible to run it with similarly-trained default
+ACF detector that comes with the data package:
+```Matlab
+experiment2_train_and_evaluate('output_dir', 'experiment2-default', 'acf_detector_file', 'code/detector/acf-polyp-default.mat');
+```
+
+Again, visualization of results can be enabled with 'visualize_detections'
+option.
+
+The obtained detections are compared to the manual annotations in terms
+of precision and recall. However, as the manual annotations are not
+actual ground-truth annotations (they were obtained by a single person
+in a single-pass annotation process), the values do not reflect the
+absolute performance of the algorithm.
+
+In MEPS paper [2] in Figures 5 and 6, the obtained detections (and
+manual annotations) were used to estimate polyp densities (in smaller ROIs),
+and these values are compared instead. But even comparing the detections,
+the same trend can be observed (i.e., images where detector performs closer
+to human annotator, and where it performs differently).
+
+
+## Troubleshooting
+
+As mentioned at the beginning of this README, it is quite likely that
+running this code will crash your Matlab. This is because on errors,
+the Caffe library calls abort() instead of throwing an exception, thus
+bringing down the whole program (in this case, Matlab). If this happens,
+see the terminal you ran the Matlab from, as the final messages should
+contain the clue as to what kind of error was encountered.
+
+Some possibilities:
+- missing network-weight data file. Make sure that the detector data file
+  was extracted inside the code directory. I.e., given the working
+  directory polyp-detector, the following directory should exist:
+  polyp-detector/code/detector/cnn-rcnn
+
+- trying to use GPU codepath (default) on non-CUDA build. If you do not
+  have CUDA installed, open file PolypDetector.m, find static method
+  feature_extractor_imagenet_fc7, and change the 'use_gpu' flag in the
+  feature extractor preset from true to false.
+
+- insufficient GPU RAM: with the default parametrization of the CNN
+  feature extractor, the processing requires around 1.5 GB of GPU RAM.
+  This may be somewhat alleviated by reducing the batch size in feature
+  extractor preset (see previous item).
