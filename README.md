@@ -17,9 +17,9 @@ detector/counter, presented in:
     Barcelona, 2016
 
 2. M. Vodopivec et al., Polyp counting made easy: towards automated
-    scyphistoma census in underwater imagery, submitted to MEPS
+    scyphistoma census in underwater imagery, journal submission, 2017
 
-The code is provided as supplement to the MEPS submission [2] in case
+The code is provided as supplement to the journal submission [2] in case
 an interested party wishes to reproduce the experimental results from
 the paper. The accompanying datasets are available here:
 
@@ -162,7 +162,7 @@ Then simply run the wrapper script:
 
 The Matlab code can be roughly divided into the polyp detection pipeline
 and the experiment framework functions, which correspond to the experiments
-outlined in the MEPS paper [2].
+outlined in the journal paper [2].
 
 Once you have set up the code and datasets, and started the Matlab as
 outlined in the previous sections, you can perform the following steps
@@ -179,7 +179,7 @@ uses the evaluation framework (the same as later used to evaluate the detector
 pipeline) to compare them to the ground-truth annotations.
 
 The results are printed in form of tab-separated table, and correspond to
-values found in Table 1, Table 2, and Table S1 in the MEPS paper [2].
+values found in Table 1, Table 2, and Table S1 in the journal paper [2].
 
 ### Part 1b: leave-one-out evaluation of detector pipeline
 
@@ -195,7 +195,7 @@ pipeline (i.e., SVM on top of CNN features extracted from proposed regions).
 It then uses the trained pipeline to process the held-out image, and
 evaluates the detection results.
 
-The obtained values correspond to those listed in Table 3 in the MEPS
+The obtained values correspond to those listed in Table 3 in the journal
 paper [2].
 
 #### Visualization
@@ -247,7 +247,7 @@ actual ground-truth annotations (they were obtained by a single person
 in a single-pass annotation process), the values do not reflect the
 absolute performance of the algorithm.
 
-In MEPS paper [2] in Figures 5 and 6, the obtained detections (and
+In journal paper [2] in Figures 5 and 6, the obtained detections (and
 manual annotations) were used to estimate polyp densities (in smaller ROIs),
 and these values are compared instead. But even comparing the detections,
 the same trend can be observed (i.e., images where detector performs closer
