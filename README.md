@@ -60,7 +60,7 @@ are enabled):
 sudo dnf install cmake gcc-c++ boost-devel glog-devel gflags-devel \
     protobuf-devel hdf5-devel lmdb-devel leveldb-devel snappy-devel \
     openblas-devel python-devel python2-numpy
-sudo dnf install  cuda-devel cudnn-devel
+sudo dnf install  cuda-devel cuda-cudnn5.1-devel
 ```
 and for Ubuntu:
 ```Shell
