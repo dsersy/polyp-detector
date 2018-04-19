@@ -16,8 +16,8 @@ detector/counter, presented in:
     Fifth International Jellyfish Bloom Symposium: Abstract book,
     Barcelona, 2016
 
-2. M. Vodopivec et al., Polyp counting made easy: towards automated
-    scyphistoma census in underwater imagery, journal submission, 2017
+2. M. Vodopivec et al., Towards automated scyphistoma census in
+    underwater imagery: useful research and monitoring tool, 2018
 
 The code is provided as supplement to the journal submission [2] in case
 an interested party wishes to reproduce the experimental results from
