@@ -17,7 +17,10 @@ detector/counter, presented in:
     Barcelona, 2016
 
 2. M. Vodopivec et al., Towards automated scyphistoma census in
-    underwater imagery: useful research and monitoring tool, 2018
+    underwater imagery: useful research and monitoring tool,
+    Journal of Sea Research, Volume 142, p. 147-156, December 2018.
+    DOI: [10.1016/j.seares.2018.09.014](https://doi.org/10.1016/j.seares.2018.09.014)
+    [Pre-print PDF available](http://prints.vicos.si/publications/364)
 
 The code is provided as supplement to the journal submission [2] in case
 an interested party wishes to reproduce the experimental results from
@@ -52,15 +55,19 @@ workstation (Quad-core Intel i5-3570K, 16 GB RAM, NVIDIA GeForce GTX 970
 GPU with 4 GB RAM), running 64-bit Fedora 24/25, with Matlab
 R2016a/R2016b, CUDA 8 and CuDNN 5.1.
 
+(Update 2019/01/06: The codebase has been updated and tested to work
+on 64-bit Fedora 29, with Matlab 2016b, CUDA 9.2 and CuDNN 7.2).
+
 The following packages are required for building Caffe, which is used for
-CNN feature extraction. For Fedora (assuming appripriate repositories
+CNN feature extraction. For Fedora (assuming appropriate repositories,
+i.e., [Negativo17's repository](https://negativo17.org/multimedia) for CUDA,
 are enabled):
 
 ```Shell
 sudo dnf install cmake gcc-c++ boost-devel glog-devel gflags-devel \
     protobuf-devel hdf5-devel lmdb-devel leveldb-devel snappy-devel \
     openblas-devel python-devel python2-numpy
-sudo dnf install  cuda-devel cuda-cudnn5.1-devel
+sudo dnf install  cuda-devel cuda-cudnn-devel cuda-gcc-c++
 ```
 and for Ubuntu:
 ```Shell
@@ -70,7 +77,7 @@ sudo apt-get install cmake build-essential libboost-all-dev libgflags-dev \
     python-numpy
 sudo apt-get install nvidia-cuda-toolkit
 ```
-The CUDA depndency is optional, however, the code currently assumes
+The CUDA dependency is optional, however, the code currently assumes
 a CUDA-enabled Caffe build. If you build Caffe without CUDA (by not
 having it installed when executing the steps outlined below), you will
 likely need to change 'use_gpu' flag in the feature extractor preset
@@ -140,7 +147,7 @@ missing dependencies, etc.).
 
 ## Running Matlab
 
-On linux, the external libraries (i.e., the Caffe shared library) need to
+On Linux, the external libraries (i.e., the Caffe shared library) need to
 be in LD_LIBRARY_PATH before Matlab is started. To simplify the launch
 process, we provide a wrapper script that sets the proper library paths,
 starts Matlab, and executes startup.m script to include external Matlab-side

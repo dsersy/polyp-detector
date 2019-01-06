@@ -11,8 +11,8 @@ set -e
 
 
 # Caffe
-CAFFE_LIB="${ROOT_DIR}/external/cnn-feature-extractor/external/caffe-bin/lib"
-export LD_LIBRARY_PATH=${LD_LIBRARY_PATH}:${CAFFE_LIB}
+CAFFE_LIB="${ROOT_DIR}/external/cnn-feature-extractor/external/caffe-bin/lib64"
+export LD_LIBRARY_PATH=${CAFFE_LIB}:${LD_LIBRARY_PATH}
 
 
 # Run MATLAB
