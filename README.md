@@ -19,8 +19,8 @@ detector/counter, presented in:
 2. M. Vodopivec et al., Towards automated scyphistoma census in
     underwater imagery: useful research and monitoring tool,
     Journal of Sea Research, Volume 142, p. 147-156, December 2018.
-    DOI: [10.1016/j.seares.2018.09.014](https://doi.org/10.1016/j.seares.2018.09.014)
-    [Pre-print PDF available](http://prints.vicos.si/publications/364)
+    DOI: [10.1016/j.seares.2018.09.014](https://doi.org/10.1016/j.seares.2018.09.014);
+    pre-print version available at [prints.vicos.si](http://prints.vicos.si/publications/364)
 
 The code is provided as supplement to the journal submission [2] in case
 an interested party wishes to reproduce the experimental results from
@@ -55,7 +55,7 @@ workstation (Quad-core Intel i5-3570K, 16 GB RAM, NVIDIA GeForce GTX 970
 GPU with 4 GB RAM), running 64-bit Fedora 24/25, with Matlab
 R2016a/R2016b, CUDA 8 and CuDNN 5.1.
 
-(Update 2019/01/06: The codebase has been updated and tested to work
+(**Update 2019/01/06**: The codebase has been updated and tested to work
 on 64-bit Fedora 29, with Matlab 2016b, CUDA 9.2 and CuDNN 7.2).
 
 The following packages are required for building Caffe, which is used for
